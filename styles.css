@@ -1,11 +1,11 @@
 /* Themes. Every color in the app comes from these tokens; a theme only sets them.
-   [data-theme] also works on any element, which is how the settings previews are drawn. */
+   [data-palette] also works on any element, which is how the settings previews are drawn. */
 :root {
   --pixel: 'Silkscreen', monospace;
   --body: 'VT323', monospace;
   --tabbar-h: 0px;
 }
-:root, [data-theme="nebula"] {
+:root, [data-palette="nebula"] {
   color-scheme: dark;
   --bg: #0b0818; --panel-solid: #140f2a; --card: #1d1639;
   --line: #2e2457; --line-2: #3d2f6b;
@@ -15,7 +15,7 @@
   --shadow: #05030c; --star-a: #5ef2e6; --star-b: #ff9fc8; --star-c: #4a3f78;
   --rim: #4bb8c4; --halo: #c9a8dc;
 }
-[data-theme="pocket"] {
+[data-palette="pocket"] {
   color-scheme: dark;
   --bg: #0e1a12; --panel-solid: #142419; --card: #1b3022;
   --line: #29452f; --line-2: #36573c;
@@ -25,7 +25,7 @@
   --shadow: #050a06; --star-a: #c4ec6e; --star-b: #f0d264; --star-c: #2c4a32;
   --rim: #9ad86a; --halo: #b8e0a0;
 }
-[data-theme="amber"] {
+[data-palette="amber"] {
   color-scheme: dark;
   --bg: #120a03; --panel-solid: #1c1106; --card: #26170a;
   --line: #3d2610; --line-2: #573715;
@@ -35,7 +35,7 @@
   --shadow: #060300; --star-a: #ffb000; --star-b: #ff8a3d; --star-c: #3d2610;
   --rim: #ffb000; --halo: #ffcf80;
 }
-[data-theme="deepsea"] {
+[data-palette="deepsea"] {
   color-scheme: dark;
   --bg: #04121c; --panel-solid: #082030; --card: #0d2b3f;
   --line: #15405a; --line-2: #1d5373;
@@ -45,7 +45,7 @@
   --shadow: #01070b; --star-a: #8fd8ff; --star-b: #3ee0d0; --star-c: #15405a;
   --rim: #3ee0d0; --halo: #8fd8ff;
 }
-[data-theme="reddust"] {
+[data-palette="reddust"] {
   color-scheme: dark;
   --bg: #160807; --panel-solid: #220e0b; --card: #2e1410;
   --line: #4a201a; --line-2: #632b22;
@@ -55,7 +55,7 @@
   --shadow: #070201; --star-a: #ff9a7a; --star-b: #ffd76a; --star-c: #4a201a;
   --rim: #ff6b4a; --halo: #ffb39a;
 }
-[data-theme="synth"] {
+[data-palette="synth"] {
   color-scheme: dark;
   --bg: #12041f; --panel-solid: #1c0830; --card: #270c42;
   --line: #3d1462; --line-2: #521c80;
@@ -65,7 +65,7 @@
   --shadow: #060010; --star-a: #3fe0ff; --star-b: #ff3fd4; --star-c: #3d1462;
   --rim: #ff3fd4; --halo: #e0a0ff;
 }
-[data-theme="contrast"] {
+[data-palette="contrast"] {
   color-scheme: dark;
   --bg: #000000; --panel-solid: #0a0a0a; --card: #141414;
   --line: #3a3a3a; --line-2: #6a6a6a;
@@ -75,7 +75,7 @@
   --shadow: #000000; --star-a: #ffffff; --star-b: #00e5ff; --star-c: #444444;
   --rim: #00e5ff; --halo: #ffffff;
 }
-[data-theme="parchment"] {
+[data-palette="parchment"] {
   color-scheme: light;
   --bg: #f3ead6; --panel-solid: #ebe0c6; --card: #fbf6ea;
   --line: #d4c6a4; --line-2: #b3a079;
@@ -86,7 +86,7 @@
   --rim: #0f7c80; --halo: #8a6a9a;
 }
 /* derived from each theme's own tokens */
-:root, [data-theme] { --panel: color-mix(in srgb, var(--panel-solid) 90%, transparent); }
+:root, [data-palette] { --panel: color-mix(in srgb, var(--panel-solid) 90%, transparent); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -283,6 +283,11 @@ button { cursor: pointer; }
 }
 .btn { background: var(--accent); color: var(--bg); border: 0; }
 .btn-ghost { background: none; border: 2px solid var(--line-2); color: var(--text); text-decoration: none; display: inline-flex; align-items: center; }
+.btn.btn-danger { background: var(--danger); }
+.save-box { display: flex; flex-direction: column; gap: 8px; }
+.save-box textarea { width: 100%; min-height: 96px; resize: vertical; padding: 8px; font: 16px/1.2 var(--body); color: var(--text); background: var(--bg); border: 2px solid var(--line-2); word-break: break-all; }
+.save-box[data-mode="export"] .import-only, .save-box[data-mode="import"] .export-only { display: none; }
+.save-msg { font-size: 17px; color: var(--accent); }
 .btn-ghost.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
 .btn-dashed { background: none; border: 2px dashed var(--line-2); color: var(--muted); text-align: left; }
 .btn-dashed:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -425,7 +430,7 @@ button { cursor: pointer; }
 .file-btn { cursor: pointer; }
 .dlg label.file-btn { flex-direction: row; gap: 0; font-size: 11px; color: var(--text); }
 
-/* Settings: theme previews (each tile renders in its own theme via data-theme) */
+/* Settings: theme previews (each tile renders in its own theme via data-palette) */
 .theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .theme-tile {
   display: flex; flex-direction: column; gap: 4px; padding: 8px; text-align: left;

@@ -8,7 +8,7 @@
 <title>Planet Growth</title>
 <script>
   // apply the saved theme before first paint, so there's no flash of the default colors
-  try { var t = localStorage.getItem('planetgrowth-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  try { var t = localStorage.getItem('planetgrowth-theme'); if (t) document.documentElement.dataset.palette = t; } catch (e) {}
 </script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -180,12 +180,35 @@
       <div class="label">SAVE DATA · STORED ON THIS DEVICE</div>
       <div class="dlg-actions">
         <button type="button" class="btn-ghost" id="exportBtn">EXPORT</button>
-        <label class="btn-ghost file-btn">IMPORT<input type="file" id="importInput" accept="application/json" hidden></label>
+        <button type="button" class="btn-ghost" id="importBtn">IMPORT</button>
         <span class="spacer"></span>
         <button type="button" class="btn-ghost danger" id="resetBtn">RESET WORLD</button>
       </div>
+      <div class="save-box" id="saveBox" hidden>
+        <div class="label" id="saveBoxLabel"></div>
+        <textarea id="saveText" spellcheck="false" aria-label="Save data"></textarea>
+        <div class="dlg-actions">
+          <button type="button" class="btn-sm export-only" id="copySave">COPY</button>
+          <button type="button" class="btn-sm export-only" id="downloadSave">DOWNLOAD FILE</button>
+          <button type="button" class="btn-sm import-only" id="loadSave">LOAD PASTED SAVE</button>
+          <label class="btn-sm file-btn import-only">CHOOSE FILE<input type="file" id="importInput" accept="application/json,.json" hidden></label>
+          <span class="save-msg" id="saveMsg" role="status"></span>
+        </div>
+      </div>
     </section>
   </div>
+</dialog>
+
+<dialog id="askDlg" class="dlg">
+  <form method="dialog" id="askForm">
+    <h2 id="askTitle"></h2>
+    <p class="hint" id="askBody"></p>
+    <label id="askInputRow" hidden>Name<input id="askInput" name="ask" maxlength="28" autocomplete="off"></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn-ghost" data-close>CANCEL</button>
+      <button type="submit" class="btn" id="askOk" value="ok">OK</button>
+    </div>
+  </form>
 </dialog>
 
 <div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button type="button" class="toast-act" hidden></button></div>

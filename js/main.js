@@ -104,7 +104,7 @@ wrap.addEventListener('pointerup', endDrag);
 wrap.addEventListener('pointercancel', endDrag);
 
 // ---------- themes ----------
-// Palettes live in styles.css as [data-theme] blocks; this list names them for the settings screen.
+// Palettes live in styles.css as [data-palette] blocks; this list names them for the settings screen.
 const THEME_KEY = 'planetgrowth-theme';
 const THEMES = [
   { id: 'nebula', name: 'Nebula', desc: 'Violet space, cyan glow' },
@@ -117,12 +117,12 @@ const THEMES = [
   { id: 'parchment', name: 'Parchment', desc: 'Light, like an old star chart' },
 ];
 const currentTheme = () => {
-  const id = document.documentElement.dataset.theme;
+  const id = document.documentElement.dataset.palette;
   return THEMES.some((t) => t.id === id) ? id : 'nebula';
 };
 
 function applyTheme(id, persist) {
-  document.documentElement.dataset.theme = id;
+  document.documentElement.dataset.palette = id;
   if (persist) { try { localStorage.setItem(THEME_KEY, id); } catch (e) { /* storage unavailable */ } }
   const css = getComputedStyle(document.documentElement);
   const v = (name) => css.getPropertyValue(name).trim();
@@ -132,11 +132,11 @@ function applyTheme(id, persist) {
 }
 applyTheme(currentTheme(), false);
 
-// Each preview tile carries data-theme, so it draws itself in that theme's colors.
+// Each preview tile carries data-palette, so it draws itself in that theme's colors.
 function renderThemes() {
   const cur = currentTheme();
   $('#themeGrid').innerHTML = THEMES.map((t) => `
-    <button type="button" class="theme-tile" aria-pressed="${t.id === cur}" data-pick="${t.id}" data-theme="${t.id}">
+    <button type="button" class="theme-tile" aria-pressed="${t.id === cur}" data-pick="${t.id}" data-palette="${t.id}">
       <span class="tt-preview" aria-hidden="true">
         <span class="tt-top"><span class="tt-dot"></span><span class="tt-bar"><span></span></span></span>
         <span class="tt-card" style="--c:var(--heat)"><span class="tt-box"></span><span class="tt-lines"><span></span><span class="short"></span></span></span>
@@ -697,7 +697,7 @@ document.addEventListener('click', (e) => {
     if (d.id === 'taskDlg') { openTaskDlg(null); return; }
     if (d.id === 'goalDlg') { openGoalDlg(null); return; }
     if (d.id === 'statsDlg') renderStats();
-    if (d.id === 'settingsDlg') renderThemes();
+    if (d.id === 'settingsDlg') { renderThemes(); saveBox.hidden = true; }
     d.showModal();
   }
   if (e.target.closest('[data-close]')) e.target.closest('dialog').close();
@@ -766,9 +766,10 @@ taskForm.addEventListener('submit', (e) => {
   save(); renderAll();
 });
 
-$('#taskDelete').addEventListener('click', () => {
+$('#taskDelete').addEventListener('click', async () => {
   const task = state.tasks.find((x) => x.id === editingId);
-  if (!task || !confirm('Delete "' + task.name + '"?')) return;
+  if (!task) return;
+  if (!(await ask({ title: 'DELETE TASK?', body: `"${task.name}" leaves your list. Past completions still count in Stats.`, ok: 'DELETE', danger: true }))) return;
   state.tasks = state.tasks.filter((x) => x.id !== editingId);
   editingId = null;
   $('#taskDlg').close();
@@ -859,44 +860,100 @@ goalForm.addEventListener('submit', (e) => {
   setView('goals');
 });
 
-$('#goalAbandon').addEventListener('click', () => {
+$('#goalAbandon').addEventListener('click', async () => {
   const g = state.goals.find((x) => x.id === editingGoalId);
-  if (!g || !confirm('Abandon "' + g.name + '"? Progress is lost.')) return;
+  if (!g) return;
+  if (!(await ask({ title: 'ABANDON GOAL?', body: `"${g.name}" and its progress (${fmtNum(g.current)} ${g.unit}) will be lost, and its slot frees up.`, ok: 'ABANDON', danger: true }))) return;
   state.goals = state.goals.filter((x) => x.id !== editingGoalId);
   editingGoalId = null;
   $('#goalDlg').close();
   save(); renderAll();
 });
 
-$('#worldName').addEventListener('click', () => {
-  const n = prompt('Name your world', state.name);
+$('#worldName').addEventListener('click', async () => {
+  const n = await ask({ title: 'NAME YOUR WORLD', ok: 'RENAME', input: state.name });
   if (n && n.trim()) { state.name = n.trim().slice(0, 28); save(); renderHeader(); }
 });
 
-$('#exportBtn').addEventListener('click', () => {
+// In-app replacement for confirm()/prompt(), which embedded viewers block.
+// Resolves true/false, or the typed text (null on cancel) when `input` is given.
+function ask({ title, body = '', ok = 'OK', danger = false, input = null }) {
+  const d = $('#askDlg');
+  $('#askTitle').textContent = title;
+  $('#askBody').textContent = body;
+  $('#askBody').hidden = !body;
+  $('#askOk').textContent = ok;
+  $('#askOk').classList.toggle('btn-danger', danger);
+  $('#askInputRow').hidden = input == null;
+  if (input != null) $('#askInput').value = input;
+  d.returnValue = '';
+  d.showModal();
+  if (input != null) $('#askInput').select();
+  return new Promise((resolve) => {
+    d.addEventListener('close', () => {
+      const yes = d.returnValue === 'ok';
+      resolve(input == null ? yes : yes ? $('#askInput').value : null);
+    }, { once: true });
+  });
+}
+
+// save data: export as text (copy works everywhere) or a file; import from a file or pasted text
+const saveBox = $('#saveBox'), saveText = $('#saveText'), saveMsg = $('#saveMsg');
+function showSaveBox(mode) {
+  saveBox.hidden = false;
+  saveBox.dataset.mode = mode;
+  saveMsg.textContent = '';
+  if (mode === 'export') {
+    saveText.readOnly = true;
+    saveText.value = JSON.stringify(state);
+    $('#saveBoxLabel').textContent = 'YOUR SAVE · COPY IT SOMEWHERE SAFE';
+  } else {
+    saveText.readOnly = false;
+    saveText.value = '';
+    saveText.placeholder = 'Paste a save here, or choose a file';
+    $('#saveBoxLabel').textContent = 'IMPORT · REPLACES THIS WORLD';
+    saveText.focus();
+  }
+}
+$('#exportBtn').addEventListener('click', () => showSaveBox('export'));
+$('#importBtn').addEventListener('click', () => showSaveBox('import'));
+$('#copySave').addEventListener('click', () => {
+  navigator.clipboard.writeText(saveText.value)
+    .then(() => { saveMsg.textContent = 'Copied.'; })
+    .catch(() => { saveText.select(); saveMsg.textContent = 'Selected. Press Ctrl+C (or ⌘C) to copy.'; });
+});
+$('#downloadSave').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'planetgrowth-' + dayKey(Date.now()) + '.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  saveMsg.textContent = 'If no file appeared, use Copy instead.';
 });
+async function importSave(text) {
+  let data;
+  try { data = JSON.parse(text); } catch (err) { data = null; }
+  if (!data || data.v !== 1 || !data.res) { saveMsg.textContent = "That isn't a Planet Growth save. Check you copied all of it."; return; }
+  if (!(await ask({ title: 'REPLACE THIS WORLD?', body: `Loads "${data.name}". Your current world is replaced.`, ok: 'LOAD SAVE', danger: true }))) return;
+  state = data; save(); renderAll(); renderStats();
+  saveBox.hidden = true;
+  toast('Save loaded');
+}
+$('#loadSave').addEventListener('click', () => importSave(saveText.value));
 $('#importInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const data = JSON.parse(await file.text());
-    if (!data || data.v !== 1 || !data.res) throw new Error('bad');
-    state = data; save(); renderAll(); renderStats(); toast('Save imported');
-  } catch (err) { toast('That file is not a Planet Growth save'); }
   e.target.value = '';
+  if (file) importSave(await file.text());
 });
-$('#resetBtn').addEventListener('click', () => {
-  if (!confirm('Reset your world? This erases all progress.')) return;
+$('#resetBtn').addEventListener('click', async () => {
+  if (!(await ask({ title: 'RESET WORLD?', body: 'This erases every task, goal and milestone and seeds a new world. Export a save first if you might want it back.', ok: 'RESET', danger: true }))) return;
   state = newState(Date.now());
   for (const [, el] of nodeEls) el.remove();
   nodeEls.clear();
   save(); renderAll(); renderStats(); closeTip();
+  $('#settingsDlg').close();
+  toast('New world seeded');
 });
 
 // desktop tabs + mobile views
@@ -927,6 +984,7 @@ document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.addEventListen
 }));
 
 // ---------- loop ----------
+if (!document.body.dataset.view) setView('tasks');
 renderAll();
 announce(pending);
 
