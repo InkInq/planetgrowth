@@ -48,6 +48,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" type="button" id="tabDaily" class="tab" aria-selected="true" data-tab="tasks">DAILY</button>
       <button role="tab" type="button" id="tabGoals" class="tab" aria-selected="false" data-tab="goals">GOALS <span id="goalCount">0/3</span></button>
+      <button role="tab" type="button" id="tabCal" class="tab" aria-selected="false" data-tab="calendar">CALENDAR</button>
     </div>
 
     <section class="pane" id="paneTasks">
@@ -61,6 +62,25 @@
       <div id="goalSummary" class="day-summary"></div>
       <ul id="goalList" class="goal-list"></ul>
       <button type="button" class="btn-dashed add-inline" id="addGoalBtn" data-open="goalDlg">+ SET GOAL</button>
+    </section>
+
+    <section class="pane cal-pane" id="paneCalendar" hidden>
+      <div class="cal-bar">
+        <button type="button" class="btn-sm" id="calToday" title="Today (T)">TODAY</button>
+        <button type="button" class="step" id="calPrev" aria-label="Previous" title="Previous (K)"><span data-icon="left"></span></button>
+        <button type="button" class="step" id="calNext" aria-label="Next" title="Next (J)"><span data-icon="right"></span></button>
+        <button type="button" class="cal-title" id="calTitle" title="Jump to a date"></button>
+        <input type="date" id="calJump" class="cal-jump" tabindex="-1" aria-hidden="true">
+        <button type="button" class="step add-event" data-open="calDlg" aria-label="New event" title="New event (C)"><span data-icon="plus"></span></button>
+      </div>
+      <div class="cal-views" role="group" aria-label="Calendar view">
+        <button type="button" class="fchip" data-calview="day" title="Day (D)">DAY</button>
+        <button type="button" class="fchip" data-calview="3day" title="3 days (X)">3 DAY</button>
+        <button type="button" class="fchip" data-calview="week" title="Week (W)">WEEK</button>
+        <button type="button" class="fchip" data-calview="month" title="Month (M)">MONTH</button>
+        <button type="button" class="fchip" data-calview="list" title="List (A)">LIST</button>
+      </div>
+      <div class="cal-body" id="calBody"></div>
     </section>
   </aside>
 
@@ -88,6 +108,7 @@
 <nav class="tabbar" aria-label="Sections">
   <button type="button" data-view="tasks" aria-current="page">TASKS</button>
   <button type="button" data-view="goals">GOALS</button>
+  <button type="button" data-view="calendar">CALENDAR</button>
   <button type="button" data-view="systems">WORLD</button>
   <button type="button" data-open="statsDlg">STATS</button>
 </nav>
@@ -199,6 +220,34 @@
   </div>
 </dialog>
 
+<dialog id="calDlg" class="dlg">
+  <form method="dialog" id="calForm">
+    <h2 id="calDlgTitle">NEW EVENT</h2>
+    <input id="calTitleInput" class="ev-title-input" maxlength="80" placeholder="Add title" autocomplete="off" aria-label="Title">
+    <label class="toggle-row"><input type="checkbox" id="calAllDay"> All day</label>
+    <div class="row cal-when">
+      <label>Starts<input type="date" id="calSD" required></label>
+      <label class="timed">Time<input type="time" id="calST" step="900"></label>
+      <label>Ends<input type="date" id="calED" required></label>
+      <label class="timed">Time<input type="time" id="calET" step="900"></label>
+    </div>
+    <div class="row">
+      <label>Repeats<select id="calRepeat"></select></label>
+      <label id="calUntilRow">Until (optional)<input type="date" id="calUntil"></label>
+    </div>
+    <fieldset class="picker cal-cat" id="calCat">
+      <legend>Color</legend>
+    </fieldset>
+    <label>Notes<textarea id="calNotes" rows="3" maxlength="500"></textarea></label>
+    <div class="dlg-actions">
+      <button type="button" class="btn-ghost danger" id="calDelete" hidden>DELETE</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn-ghost" data-close>CANCEL</button>
+      <button type="submit" class="btn" value="ok">SAVE</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="askDlg" class="dlg">
   <form method="dialog" id="askForm">
     <h2 id="askTitle"></h2>
@@ -206,6 +255,7 @@
     <label id="askInputRow" hidden>Name<input id="askInput" name="ask" maxlength="28" autocomplete="off"></label>
     <div class="dlg-actions">
       <button type="button" class="btn-ghost" data-close>CANCEL</button>
+      <button type="submit" class="btn-ghost" id="askAlt" value="alt" hidden></button>
       <button type="submit" class="btn" id="askOk" value="ok">OK</button>
     </div>
   </form>

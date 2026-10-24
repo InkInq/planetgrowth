@@ -44,6 +44,19 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 
 Missing two or more daily tasks in a category spawns a **blight** (Deep Cooling, Dust Storm, Withering) that drains that system until you complete two tasks of that category.
 
+**Calendar**
+
+A Calendar tab in the left column works like Google Calendar's phone app:
+
+- Day, 3-day, week, month and list views, with Today and previous/next.
+- Click empty time to add a 1-hour event, or drag across time to pick the range.
+- Drag an event to move it (across days too) and drag its bottom edge to resize. Moves and deletes can be undone.
+- All-day events, and repeats: daily, every weekday, weekly or monthly, with an optional end date. Changing one event in a series asks whether to change only that one or all of them.
+- Events can take a category color. Goal deadlines show up automatically.
+- Shortcuts: T today, J/K next/previous, D/X/W/M/A for day/3-day/week/month/list, C to create.
+
+On touch screens, tap to create or edit; dragging scrolls the grid.
+
 **Events on the globe**
 
 Milestones, goals, blights and recoveries appear as nodes on the planet. Tap one to see when it happened and which tasks caused it or can fix it.

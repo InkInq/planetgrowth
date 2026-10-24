@@ -84,6 +84,7 @@ export function newState(now) {
       mk('Message a friend', 'LIFE', 'steady'),
     ],
     goals: [],
+    cal: [], // calendar events: {id, title, start, end, allDay, repeat, until, skip[], cat, notes}
     history: [], // {taskId, name, cat, t}
     events: [
       { id: uid(), kind: 'milestone', title: 'World Seeded', body: 'A cold desert rock, waiting.', t: now, lat: -0.1, lon: 1.0, links: [] },
