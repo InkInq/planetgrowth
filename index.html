@@ -21,14 +21,20 @@
 
 <header class="top">
   <div class="top-left">
-    <span class="logo" aria-hidden="true"></span>
-    <button id="worldName" class="world-name" type="button" aria-label="Rename world">Unnamed World</button>
-    <span id="era" class="era">ERA I · COLD DESERT</span>
+    <canvas id="miniGlobe" class="mini-globe" width="56" height="56" aria-hidden="true"></canvas>
+    <div class="world-id">
+      <button id="worldName" class="world-name" type="button" aria-label="Rename world"><span id="worldNameText">Unnamed World</span><span class="edit-ico" data-icon="pencil"></span></button>
+      <div class="era-line" id="eraLine">
+        <span id="era" class="era">ERA I · COLD DESERT</span>
+        <span class="era-bar" aria-hidden="true"><span id="eraFill"></span></span>
+        <span id="eraNext" class="era-next"></span>
+      </div>
+    </div>
   </div>
   <div class="top-right">
-    <span id="cycle">CYCLE 001</span>
-    <span id="streak">STREAK 0</span>
-    <button class="btn-ghost desktop-only" type="button" data-open="statsDlg">STATS</button>
+    <span class="pill cycle-pill" title="Days since your world was seeded"><span data-icon="clock"></span><span id="cycle">CYCLE 001</span></span>
+    <span class="pill streak-pill" id="streakPill" title="Days in a row with at least one task done"><span data-icon="streak"></span><span id="streak">0</span></span>
+    <button class="btn-ghost desktop-only stats-btn" type="button" data-open="statsDlg"><span data-icon="chart"></span>STATS</button>
   </div>
 </header>
 
@@ -144,14 +150,21 @@
 
 <dialog id="statsDlg" class="dlg dlg-wide">
   <div class="dlg-body">
-    <h2>STATS</h2>
-    <div id="statsBody"></div>
-    <div class="dlg-actions">
-      <button type="button" class="btn-ghost" id="exportBtn">EXPORT SAVE</button>
-      <label class="btn-ghost file-btn">IMPORT<input type="file" id="importInput" accept="application/json" hidden></label>
-      <button type="button" class="btn-ghost danger" id="resetBtn">RESET WORLD</button>
-      <button type="button" class="btn" data-close>CLOSE</button>
+    <div class="dlg-head">
+      <h2>STATS</h2>
+      <span id="statsWorld" class="dlg-sub"></span>
+      <button type="button" class="dlg-x" data-close aria-label="Close"><span data-icon="close"></span></button>
     </div>
+    <div id="statsBody" class="stats"></div>
+    <section class="stat-section save-data">
+      <div class="label">SAVE DATA · STORED ON THIS DEVICE</div>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost" id="exportBtn">EXPORT</button>
+        <label class="btn-ghost file-btn">IMPORT<input type="file" id="importInput" accept="application/json" hidden></label>
+        <span class="spacer"></span>
+        <button type="button" class="btn-ghost danger" id="resetBtn">RESET WORLD</button>
+      </div>
+    </section>
   </div>
 </dialog>
 
