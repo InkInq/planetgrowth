@@ -1,9 +1,10 @@
 import {
-  CATS, SYSTEMS, TYPES, MILESTONES, DAY, HOUR,
+  CATS, SYSTEMS, TYPES, MILESTONES, BLIGHTS, DAY, HOUR,
   newState, advance, rates, completeTask, uncompleteTask, isDoneToday, goalProgress,
   nextMilestone, milestoneProgress, forecast, visuals, eraOf, stats, uid, dayKey, fmtDuration,
 } from './sim.js';
 import { Globe } from './globe.js';
+import { icon } from './icons.js';
 
 const SAVE_KEY = 'planetgrowth-save-v1';
 const $ = (s) => document.querySelector(s);
@@ -29,12 +30,19 @@ save();
 
 // ---------- toast ----------
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, action) {
   const t = $('#toast');
-  t.textContent = msg;
+  const btn = t.querySelector('.toast-act');
+  t.querySelector('.toast-msg').textContent = msg;
+  btn.hidden = !action;
+  btn.onclick = null;
+  if (action) {
+    btn.textContent = action.label;
+    btn.onclick = () => { t.classList.remove('show'); action.run(); };
+  }
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => t.classList.remove('show'), action ? 4500 : 2600);
 }
 function announce(evs) {
   for (const e of evs) {
@@ -181,6 +189,8 @@ function catOfSys(sys) { return Object.keys(CATS).find((c) => CATS[c].sys === sy
 
 function jumpToTask(text) {
   const name = text.replace(/ ×\d+$/, '');
+  catFilter = 'ALL';
+  renderTasks();
   setView('tasks');
   const li = [...document.querySelectorAll('.task')].find((x) => x.dataset.name === name);
   if (li) {
@@ -189,30 +199,94 @@ function jumpToTask(text) {
   }
 }
 
-// ---------- panels ----------
-function effectText(t) {
-  const sys = SYSTEMS[CATS[t.cat].sys].label.split(' · ').pop();
-  return {
-    steady: `Steady · ${sys} +0.06/h`,
-    surge: `Surge · ${sys} ×2 for 12h`,
-    catalyst: `Catalyst · ${sys} +15 now`,
-    stabilizer: `Stabilizer · holds ${sys} 24h`,
-  }[t.type] + (t.recurring ? '' : ' · once');
+// ---------- tasks ----------
+let catFilter = 'ALL';
+
+const sysShort = (cat) => SYSTEMS[CATS[cat].sys].label.split(' · ').pop();
+
+function rewardText(cat, type) {
+  const s = sysShort(cat);
+  return { steady: `${s} +0.06/h`, surge: `${s} ×2 · 12h`, catalyst: `${s} +15`, stabilizer: `Hold ${s} 24h` }[type];
+}
+const FLOAT_TEXT = { steady: '+0.06/h', surge: '×2', catalyst: '+15', stabilizer: 'HOLD' };
+
+// "taskId|day" for every completion, so per-day lookups are cheap.
+function historyIndex() {
+  const s = new Set();
+  for (const h of state.history) s.add(h.taskId + '|' + dayKey(h.t));
+  return s;
+}
+
+// Consecutive days done, ending today (or yesterday if not done yet today).
+function taskStreak(idx, t, now) {
+  let d = idx.has(t.id + '|' + dayKey(now)) ? 0 : 1, n = 0;
+  while (idx.has(t.id + '|' + dayKey(now - d * DAY))) { n++; d++; }
+  return n;
+}
+
+function taskCard(t, done, streak) {
+  const c = CATS[t.cat];
+  const blight = !done && state.blights[c.sys];
+  return `<li class="task${done ? ' done' : ''}" style="--c:${c.color}" data-name="${esc(t.name)}">
+    <label class="check">
+      <input type="checkbox" data-task="${t.id}" ${done ? 'checked' : ''} aria-label="${done ? 'Mark not done' : 'Complete'}: ${esc(t.name)}">
+      <span class="box">${icon('check')}</span>
+    </label>
+    <button type="button" class="task-body" data-edit="${t.id}">
+      <span class="name">${esc(t.name)}</span>
+      <span class="chips">
+        <span class="chip reward">${icon(t.type)}${rewardText(t.cat, t.type)}</span>
+        <span class="chip muted">${icon(t.recurring ? 'repeat' : 'once')}${t.recurring ? 'Daily' : 'Once'}</span>
+        ${streak >= 2 ? `<span class="chip streak">${icon('streak')}${streak}d streak</span>` : ''}
+        ${blight ? `<span class="chip blight">${icon('warn')}${BLIGHTS[c.sys].title}</span>` : ''}
+      </span>
+    </button>
+    <span class="cat-ico" aria-hidden="true">${icon(c.sys)}</span>
+  </li>`;
 }
 
 function renderTasks() {
   const now = Date.now();
-  const ul = $('#taskList');
-  if (!state.tasks.length) { ul.innerHTML = '<li class="empty">No tasks yet. Add one to start feeding your world.</li>'; return; }
-  ul.innerHTML = state.tasks.map((t) => {
-    const done = isDoneToday(state, t, now);
-    return `<li class="task${done ? ' done' : ''}" data-name="${esc(t.name)}">
-      <input type="checkbox" id="t-${t.id}" data-task="${t.id}" ${done ? 'checked' : ''}>
-      <label for="t-${t.id}"><span class="name">${esc(t.name)}</span><span class="effect">${effectText(t)}</span></label>
-      <span class="tag" style="background:${CATS[t.cat].color}">${CATS[t.cat].short}</span>
-      <button type="button" class="icon-btn" data-del="${t.id}" aria-label="Delete ${esc(t.name)}">×</button>
-    </li>`;
+  const idx = historyIndex();
+  const today = dayKey(now);
+  const isDone = (t) => idx.has(t.id + '|' + today);
+  const all = state.tasks;
+  const doneN = all.filter(isDone).length;
+
+  const date = new Date(now).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
+  const allClear = all.length && doneN === all.length;
+  $('#daySummary').innerHTML = `
+    <div class="day-head"><span class="label">TODAY · ${esc(date)}</span><span class="day-count${allClear ? ' clear' : ''}">${allClear ? '★ ALL CLEAR' : doneN + ' / ' + all.length}</span></div>
+    ${all.length ? `<div class="day-bar">${all.map((t) => `<span${isDone(t) ? ` style="background:${CATS[t.cat].color}"` : ''}></span>`).join('')}</div>` : ''}`;
+
+  $('#catFilter').innerHTML = ['ALL', ...Object.keys(CATS)].map((k) => {
+    const ts = k === 'ALL' ? all : all.filter((t) => t.cat === k);
+    const left = ts.filter((t) => !isDone(t)).length;
+    const c = CATS[k];
+    return `<button type="button" class="fchip" data-filter="${k}" aria-pressed="${catFilter === k}"${c ? ` style="--c:${c.color}"` : ''}>${c ? icon(c.sys) : ''}${c ? c.short : 'ALL'}<span class="n">${left}</span></button>`;
   }).join('');
+
+  const ul = $('#taskList');
+  if (!all.length) { ul.innerHTML = '<li class="empty">No tasks yet. Add one to start feeding your world.</li>'; return; }
+  const shown = catFilter === 'ALL' ? all : all.filter((t) => t.cat === catFilter);
+  const open = shown.filter((t) => !isDone(t)), done = shown.filter(isDone);
+  let html = open.map((t) => taskCard(t, false, taskStreak(idx, t, now))).join('');
+  if (!open.length) html += `<li class="empty">${shown.length ? 'All done here today. The planet thanks you.' : 'No ' + CATS[catFilter].label + ' tasks yet.'}</li>`;
+  if (done.length) html += `<li class="list-label label">DONE TODAY · ${done.length}</li>` + done.map((t) => taskCard(t, true, taskStreak(idx, t, now))).join('');
+  ul.innerHTML = html;
+}
+
+function floatReward(el, text, color) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = el.getBoundingClientRect();
+  const f = document.createElement('div');
+  f.className = 'float-reward';
+  f.textContent = text;
+  f.style.color = color;
+  f.style.left = (r.left + r.width / 2) + 'px';
+  f.style.top = r.top + 'px';
+  document.body.appendChild(f);
+  f.addEventListener('animationend', () => f.remove());
 }
 
 function renderGoals() {
@@ -320,17 +394,25 @@ $('#taskList').addEventListener('change', (e) => {
   if (!id) return;
   const t = state.tasks.find((x) => x.id === id);
   const now = Date.now();
-  if (e.target.checked) completeTask(state, t, now, pending);
-  else uncompleteTask(state, t, now);
+  if (e.target.checked) {
+    completeTask(state, t, now, pending);
+    floatReward(e.target.closest('.check'), FLOAT_TEXT[t.type], CATS[t.cat].color);
+    toast('✓ ' + t.name + ' · ' + rewardText(t.cat, t.type), {
+      label: 'UNDO',
+      run: () => { uncompleteTask(state, t, Date.now()); save(); renderAll(); },
+    });
+  } else uncompleteTask(state, t, now);
   save(); announce(pending); renderAll();
 });
 $('#taskList').addEventListener('click', (e) => {
-  const id = e.target.dataset.del;
-  if (!id) return;
-  const t = state.tasks.find((x) => x.id === id);
-  if (!confirm('Delete "' + t.name + '"?')) return;
-  state.tasks = state.tasks.filter((x) => x.id !== id);
-  save(); renderAll();
+  const b = e.target.closest('[data-edit]');
+  if (b) openTaskDlg(state.tasks.find((x) => x.id === b.dataset.edit));
+});
+$('#catFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filter]');
+  if (!b) return;
+  catFilter = b.dataset.filter;
+  renderTasks();
 });
 $('#goalList').addEventListener('click', (e) => {
   const logId = e.target.dataset.log, delId = e.target.dataset.delgoal;
@@ -353,6 +435,7 @@ document.addEventListener('click', (e) => {
   const open = e.target.closest('[data-open]');
   if (open) {
     const d = document.getElementById(open.dataset.open);
+    if (d.id === 'taskDlg') { openTaskDlg(null); return; }
     if (d.id === 'statsDlg') renderStats();
     if (d.id === 'goalDlg') {
       const min = dayKey(Date.now() + 7 * DAY);
@@ -364,16 +447,72 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) e.target.closest('dialog').close();
 });
 
-const typeHint = () => { $('#typeHint').textContent = TYPES[$('#typeSelect').value].desc; };
-$('#typeSelect').addEventListener('change', typeHint);
-typeHint();
+// task dialog: tile pickers, live reward preview, add + edit
+const TYPE_SHORT = { steady: '+0.06/h, lasting', surge: '×2 for 12h', catalyst: '+15 right now', stabilizer: 'No drain for 24h' };
+$('#catPicker').insertAdjacentHTML('beforeend', Object.entries(CATS).map(([k, c], i) => `
+  <label class="tile" style="--c:${c.color}"><input type="radio" name="cat" value="${k}"${i ? '' : ' checked'}>
+    <span class="ico">${icon(c.sys)}</span><span class="t">${c.short}</span><span class="s">${c.label}</span></label>`).join(''));
+$('#typePicker').insertAdjacentHTML('beforeend', Object.entries(TYPES).map(([k, t], i) => `
+  <label class="tile"><input type="radio" name="type" value="${k}"${i ? '' : ' checked'}>
+    <span class="ico">${icon(k)}</span><span class="t">${t.label.toUpperCase()}</span><span class="s">${TYPE_SHORT[k]}</span></label>`).join(''));
+document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
+$('.fab').innerHTML = icon('plus');
 
-$('#taskForm').addEventListener('submit', (e) => {
+let editingId = null;
+const taskForm = $('#taskForm');
+const picked = (name) => taskForm.querySelector(`[name="${name}"]:checked`)?.value;
+
+function updateTaskPreview() {
+  const cat = picked('cat'), type = picked('type'), daily = picked('recurring') === '1';
+  taskForm.style.setProperty('--form-c', CATS[cat].color);
+  $('#taskPreview').innerHTML = `<span class="label">ON COMPLETE</span>
+    <span class="chip reward">${icon(type)}${rewardText(cat, type)}</span>
+    <span class="pv-desc">${esc(TYPES[type].desc)}. ${daily ? 'Repeats every day.' : 'Done once, then archived.'}</span>`;
+}
+taskForm.addEventListener('change', updateTaskPreview);
+
+function openTaskDlg(task) {
+  taskForm.reset();
+  editingId = task ? task.id : null;
+  $('#taskDlgTitle').textContent = task ? 'EDIT TASK' : 'NEW TASK';
+  $('#taskSubmit').textContent = task ? 'SAVE' : 'ADD';
+  $('#taskDelete').hidden = !task;
+  if (task) {
+    taskForm.elements.namedItem('name').value = task.name;
+    taskForm.querySelector(`[name="cat"][value="${task.cat}"]`).checked = true;
+    taskForm.querySelector(`[name="type"][value="${task.type}"]`).checked = true;
+    taskForm.querySelector(`[name="recurring"][value="${task.recurring ? 1 : 0}"]`).checked = true;
+  }
+  // effects already applied today would be undone with the wrong type, so lock these
+  const locked = !!task && isDoneToday(state, task, Date.now());
+  taskForm.querySelectorAll('[name="cat"], [name="type"]').forEach((i) => { i.disabled = locked; });
+  $('#lockHint').hidden = !locked;
+  updateTaskPreview();
+  $('#taskDlg').showModal();
+}
+
+taskForm.addEventListener('submit', (e) => {
   const f = new FormData(e.target);
   const name = String(f.get('name')).trim();
   if (!name) return;
-  state.tasks.push({ id: uid(), name, cat: f.get('cat'), type: f.get('type'), recurring: !!f.get('recurring'), created: Date.now() });
-  e.target.reset(); typeHint();
+  const recurring = f.get('recurring') === '1';
+  const task = editingId && state.tasks.find((x) => x.id === editingId);
+  if (task) {
+    Object.assign(task, { name, recurring, cat: f.get('cat') || task.cat, type: f.get('type') || task.type });
+    toast('Task updated');
+  } else {
+    state.tasks.push({ id: uid(), name, cat: f.get('cat'), type: f.get('type'), recurring, created: Date.now() });
+  }
+  editingId = null;
+  save(); renderAll();
+});
+
+$('#taskDelete').addEventListener('click', () => {
+  const task = state.tasks.find((x) => x.id === editingId);
+  if (!task || !confirm('Delete "' + task.name + '"?')) return;
+  state.tasks = state.tasks.filter((x) => x.id !== editingId);
+  editingId = null;
+  $('#taskDlg').close();
   save(); renderAll();
 });
 

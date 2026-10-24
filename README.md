@@ -59,6 +59,7 @@ A forecast under the globe estimates when the next milestone lands at your curre
 - `js/sim.js`: simulation (rates, generators, blights, milestones, stats). Pure logic, no DOM.
 - `js/globe.js`: pixel globe renderer (a 112 px buffer scaled up crisply).
 - `js/main.js`: UI, input, save/load, game loop.
+- `js/icons.js`: 8×8 pixel icons drawn as inline SVG.
 - `sw.js`, `manifest.webmanifest`, `icons/`: PWA install and offline support.
 
 Tuning numbers live at the top of `js/sim.js` and in `MILESTONES`.

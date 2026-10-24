@@ -40,9 +40,10 @@
     </div>
 
     <section class="pane" id="paneTasks">
-      <div class="label">TODAY'S SCHEDULE</div>
+      <div id="daySummary" class="day-summary"></div>
+      <div id="catFilter" class="filter-chips" role="group" aria-label="Filter by category"></div>
       <ul id="taskList" class="task-list"></ul>
-      <button type="button" class="btn-dashed" data-open="taskDlg">+ ADD TASK</button>
+      <button type="button" class="btn-dashed add-inline" data-open="taskDlg">+ NEW TASK</button>
     </section>
 
     <section class="pane" id="paneGoals" hidden>
@@ -80,30 +81,30 @@
   <button type="button" data-open="statsDlg">STATS</button>
 </nav>
 
+<button type="button" class="fab" data-open="taskDlg" aria-label="New task"></button>
+
 <dialog id="taskDlg" class="dlg">
   <form method="dialog" id="taskForm">
-    <h2>NEW TASK</h2>
-    <label>Name<input name="name" required maxlength="40" autocomplete="off"></label>
-    <label>Category
-      <select name="cat">
-        <option value="PHYS">Physical → Crust · Heat</option>
-        <option value="MIND">Mental → Atmosphere</option>
-        <option value="LIFE">Social / Creative → Life</option>
-      </select>
-    </label>
-    <label>Effect
-      <select name="type" id="typeSelect">
-        <option value="steady">Steady</option>
-        <option value="surge">Surge</option>
-        <option value="catalyst">Catalyst</option>
-        <option value="stabilizer">Stabilizer</option>
-      </select>
-    </label>
-    <p class="hint" id="typeHint"></p>
-    <label class="check"><input type="checkbox" name="recurring" checked> Repeats daily</label>
+    <h2 id="taskDlgTitle">NEW TASK</h2>
+    <label>Name<input name="name" required maxlength="40" autocomplete="off" placeholder="Morning run"></label>
+    <fieldset class="picker cat-picker" id="catPicker">
+      <legend>Feeds</legend>
+    </fieldset>
+    <fieldset class="picker type-picker" id="typePicker">
+      <legend>Effect</legend>
+    </fieldset>
+    <fieldset class="picker seg-picker">
+      <legend>Repeats</legend>
+      <label class="tile tile-row"><input type="radio" name="recurring" value="1" checked><span class="ico" data-icon="repeat"></span><span class="t">DAILY</span></label>
+      <label class="tile tile-row"><input type="radio" name="recurring" value="0"><span class="ico" data-icon="once"></span><span class="t">ONCE</span></label>
+    </fieldset>
+    <div class="reward-preview" id="taskPreview"></div>
+    <p class="hint" id="lockHint" hidden>Done today, so its category and effect are locked. Uncheck it to change them.</p>
     <div class="dlg-actions">
+      <button type="button" class="btn-ghost danger" id="taskDelete" hidden>DELETE</button>
+      <span class="spacer"></span>
       <button type="button" class="btn-ghost" data-close>CANCEL</button>
-      <button type="submit" class="btn" value="ok">ADD</button>
+      <button type="submit" class="btn" value="ok" id="taskSubmit">ADD</button>
     </div>
   </form>
 </dialog>
@@ -145,7 +146,7 @@
   </div>
 </dialog>
 
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button type="button" class="toast-act" hidden></button></div>
 
 <script type="module" src="js/main.js"></script>
 </body>
