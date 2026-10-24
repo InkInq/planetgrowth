@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#0b0818">
 <meta name="description" content="Grow a planet by getting things done.">
 <title>Planet Growth</title>
+<script>
+  // apply the saved theme before first paint, so there's no flash of the default colors
+  try { var t = localStorage.getItem('planetgrowth-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -35,6 +39,7 @@
     <span class="pill cycle-pill" title="Days since your world was seeded"><span data-icon="clock"></span><span id="cycle">CYCLE 001</span></span>
     <span class="pill streak-pill" id="streakPill" title="Days in a row with at least one task done"><span data-icon="streak"></span><span id="streak">0</span></span>
     <button class="btn-ghost desktop-only stats-btn" type="button" data-open="statsDlg"><span data-icon="chart"></span>STATS</button>
+    <button class="btn-ghost icon-only" type="button" data-open="settingsDlg" aria-label="Settings" title="Settings"><span data-icon="gear"></span></button>
   </div>
 </header>
 
@@ -156,6 +161,21 @@
       <button type="button" class="dlg-x" data-close aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <div id="statsBody" class="stats"></div>
+  </div>
+</dialog>
+
+<dialog id="settingsDlg" class="dlg dlg-wide">
+  <div class="dlg-body">
+    <div class="dlg-head">
+      <h2>SETTINGS</h2>
+      <span class="dlg-sub"></span>
+      <button type="button" class="dlg-x" data-close aria-label="Close"><span data-icon="close"></span></button>
+    </div>
+    <section class="stat-section">
+      <div class="label">THEME</div>
+      <div id="themeGrid" class="theme-grid" role="radiogroup" aria-label="Theme"></div>
+      <p class="hint">Changes the colors of the whole app on this device. Your planet keeps its own colors.</p>
+    </section>
     <section class="stat-section save-data">
       <div class="label">SAVE DATA · STORED ON THIS DEVICE</div>
       <div class="dlg-actions">

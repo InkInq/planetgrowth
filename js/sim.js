@@ -1,20 +1,21 @@
 // Simulation: resources, generators, surges, blights, milestones.
+// Colors are CSS variable names so the active theme decides them.
 // All rates are per hour. Time is real time (ms timestamps).
 
 export const HOUR = 3600 * 1000;
 export const DAY = 24 * HOUR;
 
 export const CATS = {
-  PHYS: { sys: 'heat', label: 'Physical', short: 'PHYS', color: '#ffb347' },
-  MIND: { sys: 'atmos', label: 'Mental', short: 'MIND', color: '#5ef2e6' },
-  LIFE: { sys: 'life', label: 'Social / Creative', short: 'LIFE', color: '#8ef07a' },
+  PHYS: { sys: 'heat', label: 'Physical', short: 'PHYS', color: 'var(--heat)' },
+  MIND: { sys: 'atmos', label: 'Mental', short: 'MIND', color: 'var(--atmos)' },
+  LIFE: { sys: 'life', label: 'Social / Creative', short: 'LIFE', color: 'var(--life)' },
 };
 
 export const SYSTEMS = {
-  heat: { label: 'Crust · Heat', color: '#ffb347', base: 0.2 },
-  atmos: { label: 'Atmosphere', color: '#5ef2e6', base: 0.05 },
-  water: { label: 'Water', color: '#6fa8ff', base: 0 },
-  life: { label: 'Life', color: '#8ef07a', base: 0 },
+  heat: { label: 'Crust · Heat', color: 'var(--heat)', base: 0.2 },
+  atmos: { label: 'Atmosphere', color: 'var(--atmos)', base: 0.05 },
+  water: { label: 'Water', color: 'var(--water)', base: 0 },
+  life: { label: 'Life', color: 'var(--life)', base: 0 },
 };
 
 export const TYPES = {

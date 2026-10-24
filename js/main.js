@@ -61,12 +61,14 @@ function drawStars() {
   const w = Math.ceil(innerWidth / 3), h = Math.ceil(innerHeight / 3);
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const [starA, starB, starC] = ['--star-a', '--star-b', '--star-c'].map((v) => css.getPropertyValue(v).trim());
   let seed = 7;
   const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
   const n = Math.round(w * h / 900);
   for (let i = 0; i < n; i++) {
     const r = rnd();
-    ctx.fillStyle = r > 0.92 ? '#5ef2e6' : r > 0.8 ? '#ff9fc8' : '#4a3f78';
+    ctx.fillStyle = r > 0.92 ? starA : r > 0.8 ? starB : starC;
     ctx.fillRect(Math.floor(rnd() * w), Math.floor(rnd() * h), 1, 1);
   }
 }
@@ -101,12 +103,64 @@ const endDrag = () => { dragging = false; wrap.classList.remove('dragging'); };
 wrap.addEventListener('pointerup', endDrag);
 wrap.addEventListener('pointercancel', endDrag);
 
+// ---------- themes ----------
+// Palettes live in styles.css as [data-theme] blocks; this list names them for the settings screen.
+const THEME_KEY = 'planetgrowth-theme';
+const THEMES = [
+  { id: 'nebula', name: 'Nebula', desc: 'Violet space, cyan glow' },
+  { id: 'pocket', name: 'Pocket', desc: 'Handheld console greens' },
+  { id: 'amber', name: 'Amber Terminal', desc: 'Warm CRT phosphor' },
+  { id: 'deepsea', name: 'Deep Sea', desc: 'Navy and glowing teal' },
+  { id: 'reddust', name: 'Red Dust', desc: 'Martian rust and coral' },
+  { id: 'synth', name: 'Synthwave', desc: 'Neon pink, electric blue' },
+  { id: 'contrast', name: 'High Contrast', desc: 'Pure black, bold colors' },
+  { id: 'parchment', name: 'Parchment', desc: 'Light, like an old star chart' },
+];
+const currentTheme = () => {
+  const id = document.documentElement.dataset.theme;
+  return THEMES.some((t) => t.id === id) ? id : 'nebula';
+};
+
+function applyTheme(id, persist) {
+  document.documentElement.dataset.theme = id;
+  if (persist) { try { localStorage.setItem(THEME_KEY, id); } catch (e) { /* storage unavailable */ } }
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  document.querySelector('meta[name="theme-color"]').content = v('--bg');
+  globe.setTheme(v('--rim'), v('--halo'));
+  drawStars();
+}
+applyTheme(currentTheme(), false);
+
+// Each preview tile carries data-theme, so it draws itself in that theme's colors.
+function renderThemes() {
+  const cur = currentTheme();
+  $('#themeGrid').innerHTML = THEMES.map((t) => `
+    <button type="button" class="theme-tile" aria-pressed="${t.id === cur}" data-pick="${t.id}" data-theme="${t.id}">
+      <span class="tt-preview" aria-hidden="true">
+        <span class="tt-top"><span class="tt-dot"></span><span class="tt-bar"><span></span></span></span>
+        <span class="tt-card" style="--c:var(--heat)"><span class="tt-box"></span><span class="tt-lines"><span></span><span class="short"></span></span></span>
+        <span class="tt-card" style="--c:var(--atmos)"><span class="tt-box on"></span><span class="tt-lines"><span></span><span class="short"></span></span></span>
+        <span class="tt-swatches">${['accent', 'heat', 'atmos', 'life', 'water', 'danger'].map((c) => `<span style="background:var(--${c})"></span>`).join('')}</span>
+      </span>
+      <span class="tt-name">${t.name.toUpperCase()}${t.id === cur ? icon('check') : ''}</span>
+      <span class="tt-desc">${t.desc}</span>
+    </button>`).join('');
+}
+$('#themeGrid').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pick]');
+  if (!b) return;
+  applyTheme(b.dataset.pick, true);
+  renderThemes();
+  $(`#themeGrid [data-pick="${b.dataset.pick}"]`).focus();
+});
+
 // ---------- event nodes ----------
 const KIND = {
-  milestone: { color: '#ffb347', label: 'MILESTONE' },
-  goal: { color: '#8ef07a', label: 'GOAL' },
-  blight: { color: '#ff5fa2', label: 'BLIGHT' },
-  cleared: { color: '#5ef2e6', label: 'RESTORED' },
+  milestone: { color: 'var(--gold)', label: 'MILESTONE' },
+  goal: { color: 'var(--good)', label: 'GOAL' },
+  blight: { color: 'var(--danger)', label: 'BLIGHT' },
+  cleared: { color: 'var(--accent)', label: 'RESTORED' },
 };
 const nodeEls = new Map();
 
@@ -196,7 +250,7 @@ function jumpToTask(text) {
   const li = [...document.querySelectorAll('.task')].find((x) => x.dataset.name === name);
   if (li) {
     li.scrollIntoView({ block: 'nearest' });
-    li.animate([{ background: 'rgba(94,242,230,0.25)' }, { background: 'transparent' }], { duration: 1200, easing: 'steps(6)' });
+    li.animate([{ background: 'color-mix(in srgb, var(--accent) 25%, transparent)' }, { background: 'transparent' }], { duration: 1200, easing: 'steps(6)' });
   }
 }
 
@@ -504,10 +558,10 @@ function renderStats() {
   $('#statsWorld').textContent = state.name;
 
   const tiles = [
-    { ico: 'streak', c: 'var(--amber)', v: s.streak, k: 'DAY STREAK', sub: `Best ${best}` },
-    { ico: 'check', c: 'var(--cyan)', v: state.history.length, k: 'TASKS DONE', sub: `${perDay.get(today) || 0} today` },
-    { ico: 'flag', c: 'var(--green)', v: goalsDone, k: 'GOALS MET', sub: `${activeGoals().length} in progress` },
-    { ico: 'star', c: 'var(--amber)', v: `${msDone}/${MILESTONES.length}`, k: 'MILESTONES', sub: `Era ${eraOf(state).n}` },
+    { ico: 'streak', c: 'var(--gold)', v: s.streak, k: 'DAY STREAK', sub: `Best ${best}` },
+    { ico: 'check', c: 'var(--accent)', v: state.history.length, k: 'TASKS DONE', sub: `${perDay.get(today) || 0} today` },
+    { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET', sub: `${activeGoals().length} in progress` },
+    { ico: 'star', c: 'var(--gold)', v: `${msDone}/${MILESTONES.length}`, k: 'MILESTONES', sub: `Era ${eraOf(state).n}` },
   ];
 
   // per category: overall 7-day %, plus one bar per day
@@ -643,6 +697,7 @@ document.addEventListener('click', (e) => {
     if (d.id === 'taskDlg') { openTaskDlg(null); return; }
     if (d.id === 'goalDlg') { openGoalDlg(null); return; }
     if (d.id === 'statsDlg') renderStats();
+    if (d.id === 'settingsDlg') renderThemes();
     d.showModal();
   }
   if (e.target.closest('[data-close]')) e.target.closest('dialog').close();

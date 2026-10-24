@@ -16,7 +16,7 @@ function hex(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 1
 const P = (arr) => arr.map(hex);
 const pDesert = P(DESERT), pSea = P(SEA), pGreen = P(GREEN), pIce = P(ICE), pNight = P(NIGHT);
 const DUST = hex('#e8c7a8'), DUST2 = hex('#c9a088'), CLOUD = hex('#e8e0ff'), CLOUD2 = hex('#b8acd8');
-const RIM = hex('#4bb8c4'), HALO = [201, 168, 220], LIGHT = hex('#ffd27a');
+const LIGHT = hex('#ffd27a');
 
 function hash(x, y, s) {
   let h = x * 374761393 + y * 668265263 + s * 2147483647;
@@ -72,6 +72,8 @@ export class Globe {
     this.bctx = this.buf.getContext('2d');
     this.img = this.bctx.createImageData(RES, RES);
     this.rot = 0;
+    this.rim = hex('#4bb8c4');
+    this.halo = [201, 168, 220];
     this.cloudRot = 0;
     this.height = fbm(TW, TH, 3, [32, 16, 8], [0.55, 0.3, 0.15]);
     this.clouds = fbm(TW, TH, 41, [24, 10, 5], [0.5, 0.35, 0.15]);
@@ -97,6 +99,12 @@ export class Globe {
         }
       }
     }
+  }
+
+  // Edge glow and backlight come from the UI theme; the planet keeps its own colors.
+  setTheme(rim, halo) {
+    if (/^#[0-9a-f]{6}$/i.test(rim)) this.rim = hex(rim);
+    if (/^#[0-9a-f]{6}$/i.test(halo)) this.halo = hex(halo);
   }
 
   applyCraters() {
@@ -138,6 +146,7 @@ export class Globe {
   render(vis, t) {
     const data = this.img.data;
     const g = this.geo;
+    const HALO = this.halo, RIM = this.rim;
     const iceLat = 1.02 + (1 - vis.ice) * 0.5; // caps shrink as ice melts
     const seaLevel = -0.05 + vis.sea * 0.45;
     const cloudCut = 1 - vis.clouds * 0.55;
