@@ -253,10 +253,10 @@ export function forecast(state, now) {
   for (const k in m.req) {
     const need = m.req[k] - state.res[k];
     if (need <= 0) continue;
-    if (r[k] <= 0.001) return { text: m.title + ' is stalled — ' + SYSTEMS[k].label + ' is not growing', m };
+    if (r[k] <= 0.001) return { text: m.title + ' is stalled — ' + SYSTEMS[k].label + ' is not growing', m, stalled: k };
     hours = Math.max(hours, need / r[k]);
   }
-  return { text: m.title + ' in ~' + fmtDuration(hours) + ' at current pace', m };
+  return { text: m.title + ' in ~' + fmtDuration(hours) + ' at current pace', m, hours };
 }
 
 export function fmtDuration(h) {

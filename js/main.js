@@ -7,6 +7,7 @@ import { Globe } from './globe.js';
 import { icon } from './icons.js';
 
 const SAVE_KEY = 'planetgrowth-save-v1';
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -277,7 +278,7 @@ function renderTasks() {
 }
 
 function floatReward(el, text, color) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (reducedMotion.matches) return;
   const r = el.getBoundingClientRect();
   const f = document.createElement('div');
   f.className = 'float-reward';
@@ -289,68 +290,137 @@ function floatReward(el, text, color) {
   f.addEventListener('animationend', () => f.remove());
 }
 
-function renderGoals() {
-  const now = Date.now();
-  const active = state.goals.filter((g) => !g.done || now - g.done < DAY);
-  $('#goalCount').textContent = state.goals.filter((g) => !g.done).length + '/3';
-  $('#addGoalBtn').disabled = state.goals.filter((g) => !g.done).length >= 3;
-  const ul = $('#goalList');
-  if (!active.length) { ul.innerHTML = '<li class="empty">Goals unlock the biggest changes to your world.</li>'; return; }
-  ul.innerHTML = active.map((g) => {
-    const pct = Math.min(100, g.current / g.target * 100);
-    const daysLeft = Math.ceil((new Date(g.deadline + 'T23:59:59') - now) / DAY);
-    return `<li class="goal${g.done ? ' done' : ''}">
-      <div class="goal-head"><span>${esc(g.name)}</span><span class="due">${g.done ? 'DONE' : daysLeft >= 0 ? daysLeft + 'd left' : 'overdue'}</span></div>
-      <div class="bar"><div style="width:${pct}%;background:${CATS[g.cat].color}"></div></div>
-      <div class="meta">${+g.current.toFixed(2)} / ${g.target} ${esc(g.unit)}</div>
-      ${g.done ? '' : `<div class="goal-actions">
-        <input type="number" step="any" value="1" aria-label="Amount" data-amt="${g.id}">
-        <button type="button" class="btn-sm" data-log="${g.id}">LOG</button>
-        <button type="button" class="icon-btn" data-delgoal="${g.id}" aria-label="Abandon goal">×</button>
-      </div>`}
-    </li>`;
-  }).join('');
+// ---------- goals ----------
+const MAX_GOALS = 3;
+const GOAL_RES = 60, GOAL_GEN = 0.3; // mirrors goalProgress in sim.js
+const fmtNum = (v) => String(+(+v).toFixed(2));
+const activeGoals = () => state.goals.filter((g) => !g.done);
+const goalDaysLeft = (g, now) => Math.ceil((new Date(g.deadline + 'T23:59:59') - now) / DAY);
+
+function goalCard(g, now) {
+  const c = CATS[g.cat];
+  const pct = Math.min(100, g.current / g.target * 100);
+  const left = goalDaysLeft(g, now);
+  const remain = Math.max(0, g.target - g.current);
+  const due = new Date(g.deadline + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const dueCls = left < 0 ? 'blight' : left <= 3 ? 'streak' : 'muted';
+  const dueText = left < 0 ? 'Overdue · ' + due : left === 0 ? 'Due today' : `${left}d left · ${due}`;
+  const pace = left > 0 && remain > 0 ? `${fmtNum(remain / left)} ${esc(g.unit)}/day` : '';
+  return `<li class="goal" style="--c:${c.color}">
+    <button type="button" class="goal-body" data-editgoal="${g.id}">
+      <span class="goal-top"><span class="name">${esc(g.name)}</span><span class="cat-ico" aria-hidden="true">${icon(c.sys)}</span></span>
+      <span class="goal-nums"><span class="cur">${fmtNum(g.current)}</span><span class="of">/ ${fmtNum(g.target)} ${esc(g.unit)}</span><span class="pct">${Math.floor(pct)}%</span></span>
+      <span class="meter"><span class="fill" style="width:${pct}%"></span></span>
+      <span class="chips">
+        <span class="chip ${dueCls}">${icon('clock')}${dueText}</span>
+        ${pace ? `<span class="chip muted" title="Needed per day to finish on time">${icon('steady')}${pace}</span>` : ''}
+        <span class="chip reward">${icon('star')}+${GOAL_RES} ${sysShort(g.cat)}</span>
+      </span>
+    </button>
+    <div class="goal-log">
+      <button type="button" class="step" data-step="-1" data-goal="${g.id}" aria-label="Less">${icon('minus')}</button>
+      <input type="number" step="any" min="0" value="1" inputmode="decimal" data-amt="${g.id}" aria-label="Amount to log for ${esc(g.name)}">
+      <button type="button" class="step" data-step="1" data-goal="${g.id}" aria-label="More">${icon('plus')}</button>
+      <button type="button" class="btn-log" data-log="${g.id}">LOG</button>
+    </div>
+  </li>`;
 }
 
-function segs(v, color) {
-  const filled = Math.max(0, Math.min(12, Math.round(v * 12)));
-  return '<div class="segs">' + Array.from({ length: 12 }, (_, i) => `<div style="${i < filled ? 'background:' + color : ''}"></div>`).join('') + '</div>';
+function renderGoals() {
+  const now = Date.now();
+  const open = activeGoals();
+  const achieved = state.goals.filter((g) => g.done).sort((a, b) => b.done - a.done);
+  const full = open.length >= MAX_GOALS;
+  $('#goalCount').textContent = open.length + '/' + MAX_GOALS;
+  $('#addGoalBtn').disabled = full;
+  $('#addGoalBtn').textContent = full ? 'ALL 3 GOAL SLOTS IN USE' : '+ SET GOAL';
+  $('#goalSummary').innerHTML = `
+    <div class="day-head"><span class="label">GOAL SLOTS · MIN 7 DAYS OUT</span><span class="day-count">${open.length} / ${MAX_GOALS}</span></div>
+    <div class="slots">${Array.from({ length: MAX_GOALS }, (_, i) => {
+      const g = open[i];
+      return g ? `<span class="slot used" style="--c:${CATS[g.cat].color}">${icon('flag')}</span>` : '<span class="slot"></span>';
+    }).join('')}</div>`;
+  let html = open.map((g) => goalCard(g, now)).join('');
+  if (!open.length) html += `<li class="empty">Goals make the biggest changes to your world: +${GOAL_RES} to a system, a lasting +${GOAL_GEN}/h, and a landmark on the globe.</li>`;
+  if (achieved.length) {
+    html += `<li class="list-label label">ACHIEVED · ${achieved.length}</li>` + achieved.map((g) => `
+      <li class="achieved" style="--c:${CATS[g.cat].color}">${icon('star')}<span class="name">${esc(g.name)}</span><span class="meta">${fmtNum(g.target)} ${esc(g.unit)} · ${fmtDate(g.done)}</span></li>`).join('');
+  }
+  $('#goalList').innerHTML = html;
+  syncFab();
+}
+
+// ---------- world: systems + milestone road ----------
+const SYS_FEED = { heat: 'PHYS', atmos: 'MIND', life: 'LIFE' };
+const SYS_SCALE = 700; // same full scale the globe visuals use
+const sysName = (k) => SYSTEMS[k].label.split(' · ').pop();
+
+function sysModifiers(k, now) {
+  const out = [];
+  const held = (state.stab[k] || 0) > now;
+  for (const s of state.surges) {
+    if (s.sys === k && s.until > now) out.push(`<span class="chip streak" title="${esc(s.name)}">${icon('surge')}×${s.mult} · ${fmtDuration((s.until - now) / HOUR)} left</span>`);
+  }
+  if (held) out.push(`<span class="chip held">${icon('stabilizer')}Held · ${fmtDuration((state.stab[k] - now) / HOUR)} left</span>`);
+  if (state.blights[k]) out.push(`<span class="chip blight">${icon('warn')}${BLIGHTS[k].title}${held ? ' · paused' : ' −0.4/h'}</span>`);
+  if (state.gen[k] > 0.005) out.push(`<span class="chip muted" title="Boost from Steady tasks. It fades about 5% a day unless held.">${icon(held ? 'steady' : 'drift')}Tasks +${state.gen[k].toFixed(2)}/h${held ? '' : ' · fading'}</span>`);
+  if (k === 'life' && !state.milestones.rain) out.push(`<span class="chip muted">${icon('water')}×0.25 until First Rain</span>`);
+  return out.join('');
+}
+
+function sysCard(k, now, r, next) {
+  const s = SYSTEMS[k];
+  const locked = k === 'water' && !state.milestones.rain;
+  const v = state.res[k], rate = r[k];
+  const rateCls = locked ? 'muted' : rate < -0.001 ? 'neg' : rate > 0.001 ? 'pos' : 'muted';
+  const rateText = locked ? 'LOCKED' : (rate < 0 ? '−' : '+') + Math.abs(rate).toFixed(2) + '/h';
+  const target = next && next.req[k];
+  const feed = locked ? 'Unlocks at First Rain' : SYS_FEED[k] ? `Fed by ${CATS[SYS_FEED[k]].short} tasks` : 'Forms from Heat + Atmosphere';
+  return `<div class="sys-card${locked ? ' locked' : ''}" style="--c:${s.color}">
+    <div class="sys-top">
+      <span class="sys-ico">${icon(locked ? 'lock' : k)}</span>
+      <span class="sys-title"><span class="name">${s.label}</span><span class="feed">${feed}</span></span>
+      <span class="sys-val">${locked ? '' : `<span class="v">${Math.floor(v)}</span>`}<span class="rate ${rateCls}">${rateText}</span></span>
+    </div>
+    <div class="meter"><span class="fill" style="width:${Math.min(100, v / SYS_SCALE * 100)}%"></span>${target ? `<span class="mark" style="left:${Math.min(100, target / SYS_SCALE * 100)}%"></span>` : ''}</div>
+    ${target && v < target ? `<div class="sys-next">${icon('flag')}${esc(next.title)} at ${target}</div>` : ''}
+    <div class="chips">${sysModifiers(k, now)}</div>
+  </div>`;
+}
+
+function renderRoad(now) {
+  const next = nextMilestone(state);
+  const fc = forecast(state, now);
+  $('#road').innerHTML = MILESTONES.map((m) => {
+    const at = state.milestones[m.id];
+    const need = Object.entries(m.req).map(([k, v]) => sysName(k) + ' ' + v).join(' + ');
+    const era = m.id === 'bloom' ? '<span class="era-tag">ERA II</span>' : '';
+    if (at) {
+      return `<li class="ms done"><span class="ms-node">${icon('check')}</span><span class="ms-body">
+        <span class="t">${esc(m.title)}${era}</span><span class="d">Reached ${fmtDate(at)}</span></span></li>`;
+    }
+    if (m === next) {
+      const p = milestoneProgress(state, m);
+      const eta = fc.stalled ? `Stalled: ${sysName(fc.stalled)} isn't growing` : fc.hours != null ? `~${fmtDuration(fc.hours)} at this pace` : '';
+      return `<li class="ms current"><span class="ms-node">${icon('star')}</span><span class="ms-body">
+        <span class="t">${esc(m.title)}${era}<span class="pct">${Math.floor(p * 100)}%</span></span>
+        <span class="meter"><span class="fill" style="width:${p * 100}%"></span></span>
+        <span class="d">Needs ${need}</span><span class="d eta${fc.stalled ? ' stalled' : ''}">${eta}</span></span></li>`;
+    }
+    return `<li class="ms"><span class="ms-node">${icon('lock')}</span><span class="ms-body">
+      <span class="t">${esc(m.title)}${era}</span><span class="d">Needs ${need}</span></span></li>`;
+  }).join('');
 }
 
 function renderSystems() {
   const now = Date.now();
   const r = rates(state, now);
-  const notes = {
-    heat: state.blights.heat ? 'Deep cooling draining −0.4/h' : state.gen.heat > 0.05 ? 'Surface warming' : 'Feed with Physical tasks',
-    atmos: state.blights.atmos ? 'Dust storm draining −0.4/h' : state.gen.atmos > 0.05 ? 'Haze building' : 'Feed with Mental tasks',
-    water: state.milestones.rain ? 'Forms from Heat and Atmosphere together' : 'Locked until First Rain',
-    life: state.milestones.rain ? (state.blights.life ? 'Withering −0.4/h' : 'Spreading along shores') : 'Struggles without water (×0.25)',
-  };
-  $('#systems').innerHTML = Object.keys(SYSTEMS).map((k) => {
-    const s = SYSTEMS[k];
-    const locked = k === 'water' && !state.milestones.rain;
-    const rate = locked ? 'LOCKED' : (r[k] >= 0 ? '+' : '') + r[k].toFixed(2) + '/h';
-    const rc = locked ? 'var(--muted)' : r[k] < 0 ? 'var(--magenta)' : s.color;
-    return `<div class="sys${locked ? ' locked' : ''}">
-      <div class="sys-head"><span>${s.label}</span><span style="color:${rc}">${rate}</span></div>
-      ${segs(Math.min(1, state.res[k] / 700), s.color)}
-      <div class="note">${Math.floor(state.res[k])} · ${notes[k]}</div>
-    </div>`;
-  }).join('');
-
-  const m = nextMilestone(state);
-  const done = MILESTONES.filter((x) => state.milestones[x.id]);
-  $('#processes').innerHTML = (m ? `<div>
-      <div class="sys-head"><span>${esc(m.title)}</span><span style="color:var(--cyan)">${Math.floor(milestoneProgress(state, m) * 100)}%</span></div>
-      <div class="bar"><div style="width:${milestoneProgress(state, m) * 100}%;background:var(--cyan)"></div></div>
-      <div class="note" style="font-size:16px;color:var(--muted);margin-top:4px">Needs ${Object.entries(m.req).map(([k, v]) => SYSTEMS[k].label.split(' · ').pop() + ' ' + v).join(' + ')}</div>
-    </div>` : '<div class="note">All milestones reached.</div>')
-    + `<div class="note" style="font-size:16px;color:var(--muted)">${done.length} / ${MILESTONES.length} milestones</div>`;
-
-  const cards = [];
-  for (const s of state.surges) cards.push(`<div class="effect-card"><div class="t" style="color:var(--amber)">SURGE · ${fmtDuration((s.until - now) / HOUR)} LEFT</div><div class="d">${esc(s.name)}: ${SYSTEMS[s.sys].label} ×${s.mult}</div></div>`);
-  for (const k in state.stab) if (state.stab[k] > now) cards.push(`<div class="effect-card" style="border-color:var(--cyan)"><div class="t" style="color:var(--cyan)">STABILIZED · ${fmtDuration((state.stab[k] - now) / HOUR)} LEFT</div><div class="d">${SYSTEMS[k].label} holds steady</div></div>`);
-  $('#effects').innerHTML = cards.join('');
+  const next = nextMilestone(state);
+  const era = eraOf(state);
+  const doneN = MILESTONES.filter((m) => state.milestones[m.id]).length;
+  $('#worldSummary').innerHTML = `<span class="era-badge">ERA ${era.n}</span><span class="ws-name">${era.name.toUpperCase()}</span><span class="ws-count" title="Milestones reached">${icon('star')}${doneN}/${MILESTONES.length}</span>`;
+  $('#systems').innerHTML = Object.keys(SYSTEMS).map((k) => sysCard(k, now, r, next)).join('');
+  renderRoad(now);
 }
 
 function renderHeader() {
@@ -415,20 +485,35 @@ $('#catFilter').addEventListener('click', (e) => {
   renderTasks();
 });
 $('#goalList').addEventListener('click', (e) => {
-  const logId = e.target.dataset.log, delId = e.target.dataset.delgoal;
-  if (logId) {
-    const g = state.goals.find((x) => x.id === logId);
-    const amt = parseFloat(document.querySelector(`[data-amt="${logId}"]`).value) || 0;
-    goalProgress(state, g, amt, Date.now(), pending);
-    save(); announce(pending); renderAll();
+  const step = e.target.closest('[data-step]');
+  if (step) {
+    const inp = document.querySelector(`[data-amt="${step.dataset.goal}"]`);
+    inp.value = fmtNum(Math.max(0, (parseFloat(inp.value) || 0) + Number(step.dataset.step)));
+    return;
   }
-  if (delId) {
-    const g = state.goals.find((x) => x.id === delId);
-    if (!confirm('Abandon "' + g.name + '"?')) return;
-    state.goals = state.goals.filter((x) => x.id !== delId);
-    save(); renderAll();
-  }
+  const log = e.target.closest('[data-log]');
+  if (log) { logGoal(log); return; }
+  const edit = e.target.closest('[data-editgoal]');
+  if (edit) openGoalDlg(state.goals.find((x) => x.id === edit.dataset.editgoal));
 });
+$('#goalList').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.dataset.amt) document.querySelector(`[data-log="${e.target.dataset.amt}"]`).click();
+});
+
+function logGoal(btn) {
+  const g = state.goals.find((x) => x.id === btn.dataset.log);
+  const amt = parseFloat(document.querySelector(`[data-amt="${g.id}"]`).value) || 0;
+  if (amt <= 0) { toast('Enter an amount to log'); return; }
+  floatReward(btn, '+' + fmtNum(amt) + ' ' + g.unit, CATS[g.cat].color);
+  goalProgress(state, g, amt, Date.now(), pending);
+  if (!g.done) {
+    toast(`Logged ${fmtNum(amt)} ${g.unit} · ${g.name}`, {
+      label: 'UNDO',
+      run: () => { if (!g.done) { goalProgress(state, g, -amt, Date.now(), []); save(); renderAll(); } },
+    });
+  }
+  save(); announce(pending); renderAll();
+}
 
 // dialogs
 document.addEventListener('click', (e) => {
@@ -436,12 +521,8 @@ document.addEventListener('click', (e) => {
   if (open) {
     const d = document.getElementById(open.dataset.open);
     if (d.id === 'taskDlg') { openTaskDlg(null); return; }
+    if (d.id === 'goalDlg') { openGoalDlg(null); return; }
     if (d.id === 'statsDlg') renderStats();
-    if (d.id === 'goalDlg') {
-      const min = dayKey(Date.now() + 7 * DAY);
-      $('#goalDeadline').min = min;
-      $('#goalDeadline').value = dayKey(Date.now() + 14 * DAY);
-    }
     d.showModal();
   }
   if (e.target.closest('[data-close]')) e.target.closest('dialog').close();
@@ -449,9 +530,11 @@ document.addEventListener('click', (e) => {
 
 // task dialog: tile pickers, live reward preview, add + edit
 const TYPE_SHORT = { steady: '+0.06/h, lasting', surge: '×2 for 12h', catalyst: '+15 right now', stabilizer: 'No drain for 24h' };
-$('#catPicker').insertAdjacentHTML('beforeend', Object.entries(CATS).map(([k, c], i) => `
+const catTiles = () => Object.entries(CATS).map(([k, c], i) => `
   <label class="tile" style="--c:${c.color}"><input type="radio" name="cat" value="${k}"${i ? '' : ' checked'}>
-    <span class="ico">${icon(c.sys)}</span><span class="t">${c.short}</span><span class="s">${c.label}</span></label>`).join(''));
+    <span class="ico">${icon(c.sys)}</span><span class="t">${c.short}</span><span class="s">${c.label}</span></label>`).join('');
+$('#catPicker').insertAdjacentHTML('beforeend', catTiles());
+$('#goalCatPicker').insertAdjacentHTML('beforeend', catTiles());
 $('#typePicker').insertAdjacentHTML('beforeend', Object.entries(TYPES).map(([k, t], i) => `
   <label class="tile"><input type="radio" name="type" value="${k}"${i ? '' : ' checked'}>
     <span class="ico">${icon(k)}</span><span class="t">${t.label.toUpperCase()}</span><span class="s">${TYPE_SHORT[k]}</span></label>`).join(''));
@@ -516,15 +599,97 @@ $('#taskDelete').addEventListener('click', () => {
   save(); renderAll();
 });
 
-$('#goalForm').addEventListener('submit', (e) => {
+// goal dialog: add + edit, quick deadlines, live preview
+let editingGoalId = null;
+const goalForm = $('#goalForm');
+const gField = (n) => goalForm.elements.namedItem(n);
+const goalMinDate = (g) => dayKey((g ? g.created : Date.now()) + 7 * DAY);
+
+function updateGoalPreview() {
+  const cat = goalForm.querySelector('[name="cat"]:checked').value;
+  goalForm.style.setProperty('--form-c', CATS[cat].color);
+  const target = parseFloat(gField('target').value);
+  const current = editingGoalId ? parseFloat(gField('current').value) || 0 : 0;
+  const unit = gField('unit').value.trim();
+  const dl = gField('deadline').value;
+  const days = dl ? Math.max(1, Math.ceil((new Date(dl + 'T23:59:59') - Date.now()) / DAY)) : 0;
+  const remain = target - current;
+  const pace = !(target > 0) || !days ? 'Set a target and deadline to see the pace.'
+    : remain <= 0 ? 'Target already met.'
+    : `About ${fmtNum(remain / days)}${unit ? ' ' + esc(unit) : ''} a day over ${days} days.`;
+  $('#goalPreview').innerHTML = `<span class="label">ON COMPLETE</span>
+    <span class="chip reward">${icon('star')}+${GOAL_RES} ${sysShort(cat)}</span>
+    <span class="chip reward">${icon('steady')}+${GOAL_GEN}/h lasting</span>
+    <span class="chip reward">${icon('flag')}Landmark</span>
+    <span class="pv-desc">${pace}</span>`;
+  goalForm.querySelectorAll('[data-days]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(dl === quickDate(b.dataset.days)));
+  });
+}
+const quickDate = (days) => {
+  const d = dayKey(Date.now() + Number(days) * DAY), min = gField('deadline').min;
+  return d < min ? min : d;
+};
+goalForm.addEventListener('input', updateGoalPreview);
+goalForm.addEventListener('change', updateGoalPreview);
+goalForm.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-days]');
+  if (!b) return;
+  gField('deadline').value = quickDate(b.dataset.days);
+  updateGoalPreview();
+});
+
+function openGoalDlg(g) {
+  goalForm.reset();
+  editingGoalId = g ? g.id : null;
+  $('#goalDlgTitle').textContent = g ? 'EDIT GOAL' : 'NEW GOAL';
+  $('#goalSubmit').textContent = g ? 'SAVE' : 'SET GOAL';
+  $('#goalAbandon').hidden = !g;
+  $('#goalProgressRow').hidden = !g;
+  gField('deadline').min = goalMinDate(g);
+  if (g) {
+    gField('name').value = g.name;
+    gField('target').value = g.target;
+    gField('unit').value = g.unit;
+    gField('current').value = fmtNum(g.current);
+    gField('deadline').value = g.deadline;
+    goalForm.querySelector(`[name="cat"][value="${g.cat}"]`).checked = true;
+  } else {
+    gField('deadline').value = dayKey(Date.now() + 14 * DAY);
+  }
+  updateGoalPreview();
+  $('#goalDlg').showModal();
+}
+
+goalForm.addEventListener('submit', (e) => {
   const f = new FormData(e.target);
-  if (state.goals.filter((g) => !g.done).length >= 3) { e.preventDefault(); toast('Only 3 goals at once'); return; }
-  const deadline = String(f.get('deadline'));
-  if (deadline < dayKey(Date.now() + 7 * DAY)) { e.preventDefault(); toast('Deadline must be at least 7 days out'); return; }
-  state.goals.push({ id: uid(), name: String(f.get('name')).trim(), target: parseFloat(f.get('target')), unit: String(f.get('unit')).trim(), cat: f.get('cat'), deadline, current: 0, created: Date.now() });
-  e.target.reset();
-  save(); renderAll();
+  const g = editingGoalId && state.goals.find((x) => x.id === editingGoalId);
+  const data = {
+    name: String(f.get('name')).trim(), target: parseFloat(f.get('target')), unit: String(f.get('unit')).trim(),
+    cat: f.get('cat'), deadline: String(f.get('deadline')),
+  };
+  if (data.deadline < goalMinDate(g)) { e.preventDefault(); return; } // the date input's min already blocks this
+  if (g) {
+    Object.assign(g, data);
+    g.current = Math.max(0, parseFloat(f.get('current')) || 0);
+    goalProgress(state, g, 0, Date.now(), pending); // completes it if the target is now met
+    if (!g.done) toast('Goal updated');
+  } else {
+    if (activeGoals().length >= MAX_GOALS) { e.preventDefault(); return; }
+    state.goals.push({ id: uid(), ...data, current: 0, created: Date.now() });
+  }
+  editingGoalId = null;
+  save(); announce(pending); renderAll();
   setView('goals');
+});
+
+$('#goalAbandon').addEventListener('click', () => {
+  const g = state.goals.find((x) => x.id === editingGoalId);
+  if (!g || !confirm('Abandon "' + g.name + '"? Progress is lost.')) return;
+  state.goals = state.goals.filter((x) => x.id !== editingGoalId);
+  editingGoalId = null;
+  $('#goalDlg').close();
+  save(); renderAll();
 });
 
 $('#worldName').addEventListener('click', () => {
@@ -568,6 +733,16 @@ function setView(v) {
     $('#tabDaily').setAttribute('aria-selected', v === 'tasks');
     $('#tabGoals').setAttribute('aria-selected', v === 'goals');
   }
+  syncFab();
+}
+
+// The phone add button follows the open tab, and hides when goal slots are full.
+function syncFab() {
+  const fab = $('.fab');
+  const goals = document.body.dataset.view === 'goals';
+  fab.dataset.open = goals ? 'goalDlg' : 'taskDlg';
+  fab.setAttribute('aria-label', goals ? 'New goal' : 'New task');
+  fab.hidden = goals && activeGoals().length >= MAX_GOALS;
 }
 document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.tab)));
 document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.addEventListener('click', () => {
@@ -581,9 +756,10 @@ announce(pending);
 
 let lastSim = 0, lastUi = 0, lastFrame = performance.now();
 function frame(t) {
-  const dt = t - lastFrame; lastFrame = t;
+  const dt = Math.min(100, t - lastFrame); lastFrame = t; // clamp so returning to the tab doesn't jump
   if (!autoSpin && !dragging && !selected && t > spinResume) autoSpin = true;
-  if (autoSpin && !matchMedia('(prefers-reduced-motion: reduce)').matches) globe.rot += dt * 0.00009;
+  // one turn every ~70s; with reduced motion, a gentle drift (~6 min a turn) instead of stopping
+  if (autoSpin) globe.rot += dt * (reducedMotion.matches ? 0.000017 : 0.00009);
   globe.cloudRot += dt * 0.00004;
   if (t - lastSim > 1000) {
     advance(state, Date.now(), pending);

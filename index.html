@@ -47,9 +47,9 @@
     </section>
 
     <section class="pane" id="paneGoals" hidden>
-      <div class="label">GOALS · MAX 3 · MIN 7 DAYS OUT</div>
+      <div id="goalSummary" class="day-summary"></div>
       <ul id="goalList" class="goal-list"></ul>
-      <button type="button" class="btn-dashed" id="addGoalBtn" data-open="goalDlg">+ SET GOAL</button>
+      <button type="button" class="btn-dashed add-inline" id="addGoalBtn" data-open="goalDlg">+ SET GOAL</button>
     </section>
   </aside>
 
@@ -66,11 +66,11 @@
   </main>
 
   <aside class="panel right" id="systemsPanel" aria-label="Planet systems">
+    <div id="worldSummary" class="world-summary"></div>
     <div class="label">SYSTEMS</div>
     <div id="systems" class="systems"></div>
-    <div class="label">NEXT MILESTONE</div>
-    <div id="processes" class="processes"></div>
-    <div id="effects" class="effects"></div>
+    <div class="label">MILESTONES</div>
+    <ol id="road" class="road"></ol>
   </aside>
 </div>
 
@@ -111,24 +111,33 @@
 
 <dialog id="goalDlg" class="dlg">
   <form method="dialog" id="goalForm">
-    <h2>NEW GOAL</h2>
+    <h2 id="goalDlgTitle">NEW GOAL</h2>
     <label>Goal<input name="name" required maxlength="40" autocomplete="off" placeholder="Run a 5k"></label>
     <div class="row">
-      <label>Target<input name="target" type="number" min="1" step="any" required placeholder="5"></label>
-      <label>Unit<input name="unit" required maxlength="12" placeholder="km"></label>
+      <label>Target<input name="target" type="number" min="0.01" step="any" required placeholder="5" inputmode="decimal"></label>
+      <label>Unit<input name="unit" required maxlength="12" placeholder="km" autocomplete="off"></label>
     </div>
-    <label>Category
-      <select name="cat">
-        <option value="PHYS">Physical</option>
-        <option value="MIND">Mental</option>
-        <option value="LIFE">Social / Creative</option>
-      </select>
-    </label>
-    <label>Deadline<input name="deadline" type="date" required id="goalDeadline"></label>
+    <label id="goalProgressRow" hidden>Progress so far<input name="current" type="number" min="0" step="any" inputmode="decimal"></label>
+    <fieldset class="picker cat-picker" id="goalCatPicker">
+      <legend>Feeds</legend>
+    </fieldset>
+    <fieldset class="picker deadline-picker">
+      <legend>Deadline</legend>
+      <div class="quick-dates">
+        <button type="button" class="fchip" data-days="7">1 WEEK</button>
+        <button type="button" class="fchip" data-days="14">2 WEEKS</button>
+        <button type="button" class="fchip" data-days="30">1 MONTH</button>
+        <button type="button" class="fchip" data-days="90">3 MONTHS</button>
+      </div>
+      <input name="deadline" type="date" required id="goalDeadline" aria-label="Deadline date">
+    </fieldset>
+    <div class="reward-preview" id="goalPreview"></div>
     <p class="hint">Goals are scarce on purpose: up to 3 at once, at least 7 days out, with a number you can measure.</p>
     <div class="dlg-actions">
+      <button type="button" class="btn-ghost danger" id="goalAbandon" hidden>ABANDON</button>
+      <span class="spacer"></span>
       <button type="button" class="btn-ghost" data-close>CANCEL</button>
-      <button type="submit" class="btn" value="ok">SET GOAL</button>
+      <button type="submit" class="btn" value="ok" id="goalSubmit">SET GOAL</button>
     </div>
   </form>
 </dialog>
