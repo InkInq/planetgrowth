@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0818">
+<meta name="description" content="Grow a planet by getting things done.">
+<title>Planet Growth</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-view="tasks">
+<canvas id="stars" aria-hidden="true"></canvas>
+
+<header class="top">
+  <div class="top-left">
+    <span class="logo" aria-hidden="true"></span>
+    <button id="worldName" class="world-name" type="button" aria-label="Rename world">Unnamed World</button>
+    <span id="era" class="era">ERA I · COLD DESERT</span>
+  </div>
+  <div class="top-right">
+    <span id="cycle">CYCLE 001</span>
+    <span id="streak">STREAK 0</span>
+    <button class="btn-ghost desktop-only" type="button" data-open="statsDlg">STATS</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel left" id="tasksPanel" aria-label="Tasks and goals">
+    <div class="tabs" role="tablist">
+      <button role="tab" type="button" id="tabDaily" class="tab" aria-selected="true" data-tab="tasks">DAILY</button>
+      <button role="tab" type="button" id="tabGoals" class="tab" aria-selected="false" data-tab="goals">GOALS <span id="goalCount">0/3</span></button>
+    </div>
+
+    <section class="pane" id="paneTasks">
+      <div class="label">TODAY'S SCHEDULE</div>
+      <ul id="taskList" class="task-list"></ul>
+      <button type="button" class="btn-dashed" data-open="taskDlg">+ ADD TASK</button>
+    </section>
+
+    <section class="pane" id="paneGoals" hidden>
+      <div class="label">GOALS · MAX 3 · MIN 7 DAYS OUT</div>
+      <ul id="goalList" class="goal-list"></ul>
+      <button type="button" class="btn-dashed" id="addGoalBtn" data-open="goalDlg">+ SET GOAL</button>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <div class="globe-wrap" id="globeWrap">
+      <canvas id="globe" role="img" aria-label="Your planet"></canvas>
+      <div id="nodes" class="nodes"></div>
+      <div id="tip" class="tip" hidden></div>
+    </div>
+    <div class="forecast">
+      <div class="label">FORECAST</div>
+      <div id="forecast" class="forecast-text">…</div>
+    </div>
+  </main>
+
+  <aside class="panel right" id="systemsPanel" aria-label="Planet systems">
+    <div class="label">SYSTEMS</div>
+    <div id="systems" class="systems"></div>
+    <div class="label">NEXT MILESTONE</div>
+    <div id="processes" class="processes"></div>
+    <div id="effects" class="effects"></div>
+  </aside>
+</div>
+
+<nav class="tabbar" aria-label="Sections">
+  <button type="button" data-view="tasks" aria-current="page">TASKS</button>
+  <button type="button" data-view="goals">GOALS</button>
+  <button type="button" data-view="systems">WORLD</button>
+  <button type="button" data-open="statsDlg">STATS</button>
+</nav>
+
+<dialog id="taskDlg" class="dlg">
+  <form method="dialog" id="taskForm">
+    <h2>NEW TASK</h2>
+    <label>Name<input name="name" required maxlength="40" autocomplete="off"></label>
+    <label>Category
+      <select name="cat">
+        <option value="PHYS">Physical → Crust · Heat</option>
+        <option value="MIND">Mental → Atmosphere</option>
+        <option value="LIFE">Social / Creative → Life</option>
+      </select>
+    </label>
+    <label>Effect
+      <select name="type" id="typeSelect">
+        <option value="steady">Steady</option>
+        <option value="surge">Surge</option>
+        <option value="catalyst">Catalyst</option>
+        <option value="stabilizer">Stabilizer</option>
+      </select>
+    </label>
+    <p class="hint" id="typeHint"></p>
+    <label class="check"><input type="checkbox" name="recurring" checked> Repeats daily</label>
+    <div class="dlg-actions">
+      <button type="button" class="btn-ghost" data-close>CANCEL</button>
+      <button type="submit" class="btn" value="ok">ADD</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="goalDlg" class="dlg">
+  <form method="dialog" id="goalForm">
+    <h2>NEW GOAL</h2>
+    <label>Goal<input name="name" required maxlength="40" autocomplete="off" placeholder="Run a 5k"></label>
+    <div class="row">
+      <label>Target<input name="target" type="number" min="1" step="any" required placeholder="5"></label>
+      <label>Unit<input name="unit" required maxlength="12" placeholder="km"></label>
+    </div>
+    <label>Category
+      <select name="cat">
+        <option value="PHYS">Physical</option>
+        <option value="MIND">Mental</option>
+        <option value="LIFE">Social / Creative</option>
+      </select>
+    </label>
+    <label>Deadline<input name="deadline" type="date" required id="goalDeadline"></label>
+    <p class="hint">Goals are scarce on purpose: up to 3 at once, at least 7 days out, with a number you can measure.</p>
+    <div class="dlg-actions">
+      <button type="button" class="btn-ghost" data-close>CANCEL</button>
+      <button type="submit" class="btn" value="ok">SET GOAL</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="statsDlg" class="dlg dlg-wide">
+  <div class="dlg-body">
+    <h2>STATS</h2>
+    <div id="statsBody"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn-ghost" id="exportBtn">EXPORT SAVE</button>
+      <label class="btn-ghost file-btn">IMPORT<input type="file" id="importInput" accept="application/json" hidden></label>
+      <button type="button" class="btn-ghost danger" id="resetBtn">RESET WORLD</button>
+      <button type="button" class="btn" data-close>CLOSE</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
