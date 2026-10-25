@@ -274,6 +274,16 @@ button { cursor: pointer; }
 .achieved .px { width: 16px; height: 16px; }
 .achieved .name { font-size: 20px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .achieved .meta { font-size: 16px; color: var(--muted); white-space: nowrap; }
+/* game words: bold and colored by what they affect (see markGameWords in main.js) */
+.kw { font-weight: 700; }
+.kw-heat { color: var(--heat); }
+.kw-atmos { color: var(--atmos); }
+.kw-water { color: var(--water); }
+.kw-life { color: var(--life); }
+.kw-num, .kw-gold, .kw-ms { color: var(--gold); }
+.kw-bad { color: var(--danger); }
+.kw-fx { color: var(--accent); }
+
 /* focus (pomodoro) */
 .focus-pill { cursor: pointer; background: none; font-family: var(--pixel); font-size: 12px; }
 .focus-pill:hover { border-color: var(--accent); color: var(--accent); }
