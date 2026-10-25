@@ -153,18 +153,11 @@
     <fieldset class="picker cat-picker" id="goalCatPicker">
       <legend>Feeds</legend>
     </fieldset>
-    <fieldset class="picker deadline-picker">
-      <legend>Deadline</legend>
-      <div class="quick-dates">
-        <button type="button" class="fchip" data-days="7">1 WEEK</button>
-        <button type="button" class="fchip" data-days="14">2 WEEKS</button>
-        <button type="button" class="fchip" data-days="30">1 MONTH</button>
-        <button type="button" class="fchip" data-days="90">3 MONTHS</button>
-      </div>
-      <input name="deadline" type="date" required id="goalDeadline" aria-label="Deadline date">
+    <fieldset class="picker month-picker" id="goalMonthPicker">
+      <legend>Month · due on its last day</legend>
     </fieldset>
     <div class="reward-preview" id="goalPreview"></div>
-    <p class="hint">Goals are scarce on purpose: up to 3 at once, at least 7 days out, with a number you can measure.</p>
+    <p class="hint">Goals are monthly: up to 3 per calendar month, each with a number you can measure. Unfinished goals are marked missed when the month ends.</p>
     <div class="dlg-actions">
       <button type="button" class="btn-ghost danger" id="goalAbandon" hidden>ABANDON</button>
       <span class="spacer"></span>

@@ -2,6 +2,7 @@ import {
   CATS, SYSTEMS, TYPES, MILESTONES, BLIGHTS, DAY, HOUR,
   newState, advance, rates, completeTask, uncompleteTask, isDoneToday, goalProgress,
   nextMilestone, milestoneProgress, forecast, visuals, eraOf, stats, uid, dayKey, fmtDuration,
+  GOALS_PER_MONTH, monthKey, monthAfter, monthLastDay, monthStart, goalMonth, goalsInMonth, openGoals, expireGoals,
 } from './sim.js';
 import { Globe } from './globe.js';
 import { icon } from './icons.js';
@@ -25,6 +26,7 @@ function save() {
 
 let state = load();
 state.cal ||= []; // saves from before the calendar existed
+expireGoals(state, Date.now()); // gives older goals a month, and closes out months that have ended
 let selected = null; // selected event id
 const pending = [];
 advance(state, Date.now(), pending);
@@ -346,21 +348,28 @@ function floatReward(el, text, color) {
 }
 
 // ---------- goals ----------
-const MAX_GOALS = 3;
+// Monthly goals: each belongs to this month or next, due on that month's last day, max 3 per month.
 const GOAL_RES = 60, GOAL_GEN = 0.3; // mirrors goalProgress in sim.js
 const fmtNum = (v) => String(+(+v).toFixed(2));
-const activeGoals = () => state.goals.filter((g) => !g.done);
+const activeGoals = () => openGoals(state);
 const goalDaysLeft = (g, now) => Math.ceil((new Date(g.deadline + 'T23:59:59') - now) / DAY);
+const monthName = (mk, style = 'long') => new Date(monthStart(mk)).toLocaleDateString(undefined, { month: style });
+const goalMonths = (now = Date.now()) => { const cur = monthKey(now); return [cur, monthAfter(cur)]; };
+const monthRoom = (mk, exceptId) => GOALS_PER_MONTH - goalsInMonth(state, mk).filter((g) => g.id !== exceptId).length;
+const canAddGoal = () => goalMonths().some((mk) => monthRoom(mk) > 0);
 
 function goalCard(g, now) {
   const c = CATS[g.cat];
   const pct = Math.min(100, g.current / g.target * 100);
   const left = goalDaysLeft(g, now);
   const remain = Math.max(0, g.target - g.current);
-  const due = new Date(g.deadline + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const dueCls = left < 0 ? 'blight' : left <= 3 ? 'streak' : 'muted';
-  const dueText = left < 0 ? 'Overdue · ' + due : left === 0 ? 'Due today' : `${left}d left · ${due}`;
-  const pace = left > 0 && remain > 0 ? `${fmtNum(remain / left)} ${esc(g.unit)}/day` : '';
+  const started = monthStart(g.month) <= now;
+  // a goal for next month counts its pace over the whole month
+  const days = started ? left : Math.round((new Date(g.deadline + 'T23:59:59') - monthStart(g.month)) / DAY);
+  const dueCls = left <= 3 ? 'streak' : 'muted';
+  const dueText = !started ? `${monthName(g.month)} · starts in ${Math.ceil((monthStart(g.month) - now) / DAY)}d`
+    : left <= 0 ? `${monthName(g.month)} · due today` : `${monthName(g.month)} · ${left}d left`;
+  const pace = days > 0 && remain > 0 ? `${fmtNum(remain / days)} ${esc(g.unit)}/day` : '';
   return `<li class="goal" style="--c:${c.color}">
     <button type="button" class="goal-body" data-editgoal="${g.id}">
       <span class="goal-top"><span class="name">${esc(g.name)}</span><span class="cat-ico" aria-hidden="true">${icon(c.sys)}</span></span>
@@ -383,23 +392,32 @@ function goalCard(g, now) {
 
 function renderGoals() {
   const now = Date.now();
+  const [cur, next] = goalMonths(now);
   const open = activeGoals();
-  const achieved = state.goals.filter((g) => g.done).sort((a, b) => b.done - a.done);
-  const full = open.length >= MAX_GOALS;
-  $('#goalCount').textContent = open.length + '/' + MAX_GOALS;
-  $('#addGoalBtn').disabled = full;
-  $('#addGoalBtn').textContent = full ? 'ALL 3 GOAL SLOTS IN USE' : '+ SET GOAL';
-  $('#goalSummary').innerHTML = `
-    <div class="day-head"><span class="label">GOAL SLOTS · MIN 7 DAYS OUT</span><span class="day-count">${open.length} / ${MAX_GOALS}</span></div>
-    <div class="slots">${Array.from({ length: MAX_GOALS }, (_, i) => {
-      const g = open[i];
-      return g ? `<span class="slot used" style="--c:${CATS[g.cat].color}">${icon('flag')}</span>` : '<span class="slot"></span>';
-    }).join('')}</div>`;
-  let html = open.map((g) => goalCard(g, now)).join('');
-  if (!open.length) html += `<li class="empty">Goals make the biggest changes to your world: +${GOAL_RES} to a system, a lasting +${GOAL_GEN}/h, and a landmark on the globe.</li>`;
-  if (achieved.length) {
-    html += `<li class="list-label label">ACHIEVED · ${achieved.length}</li>` + achieved.map((g) => `
-      <li class="achieved" style="--c:${CATS[g.cat].color}">${icon('star')}<span class="name">${esc(g.name)}</span><span class="meta">${fmtNum(g.target)} ${esc(g.unit)} · ${fmtDate(g.done)}</span></li>`).join('');
+  const past = state.goals.filter((g) => g.done || g.missed).sort((a, b) => (b.done || b.missed) - (a.done || a.missed));
+  const curCount = goalsInMonth(state, cur).length;
+  $('#goalCount').textContent = curCount + '/' + GOALS_PER_MONTH;
+  $('#addGoalBtn').disabled = !canAddGoal();
+  $('#addGoalBtn').textContent = canAddGoal() ? '+ SET GOAL' : 'THIS MONTH AND NEXT ARE FULL';
+  const slotRow = (mk, label) => {
+    const gs = goalsInMonth(state, mk);
+    return `<div class="day-head"><span class="label">${monthName(mk).toUpperCase()} · ${label}</span><span class="day-count">${gs.length} / ${GOALS_PER_MONTH}</span></div>
+      <div class="slots">${Array.from({ length: GOALS_PER_MONTH }, (_, i) => {
+        const g = gs[i];
+        return g ? `<span class="slot used${g.done ? ' done' : ''}" style="--c:${CATS[g.cat].color}" title="${esc(g.name)}">${icon(g.done ? 'star' : 'flag')}</span>` : '<span class="slot"></span>';
+      }).join('')}</div>`;
+  };
+  const left = Math.ceil((new Date(monthLastDay(cur) + 'T23:59:59') - now) / DAY);
+  $('#goalSummary').innerHTML = slotRow(cur, left <= 1 ? 'LAST DAY' : left + ' DAYS LEFT')
+    + (goalsInMonth(state, next).length || curCount >= GOALS_PER_MONTH ? slotRow(next, 'PLAN AHEAD') : '');
+  const ofMonth = (mk) => open.filter((g) => g.month === mk).map((g) => goalCard(g, now)).join('');
+  let html = ofMonth(cur);
+  if (!open.length) html += `<li class="empty">Set up to ${GOALS_PER_MONTH} goals a month. Each one finished gives +${GOAL_RES} to a system, a lasting +${GOAL_GEN}/h, and a landmark on the globe.</li>`;
+  if (open.some((g) => g.month === next)) html += `<li class="list-label label">${monthName(next).toUpperCase()}</li>` + ofMonth(next);
+  if (past.length) {
+    html += `<li class="list-label label">PAST GOALS · ${past.filter((g) => g.done).length} MET · ${past.filter((g) => g.missed).length} MISSED</li>` + past.map((g) => `
+      <li class="achieved${g.missed ? ' missed' : ''}" style="--c:${CATS[g.cat].color}">${icon(g.done ? 'star' : 'close')}<span class="name">${esc(g.name)}</span>
+        <span class="meta">${g.done ? fmtNum(g.target) + ' ' + esc(g.unit) + ' · ' + fmtDate(g.done) : fmtNum(g.current) + '/' + fmtNum(g.target) + ' · ' + monthName(g.month, 'short')}</span></li>`).join('');
   }
   $('#goalList').innerHTML = html;
   syncFab();
@@ -561,7 +579,7 @@ function renderStats() {
   const tiles = [
     { ico: 'streak', c: 'var(--gold)', v: s.streak, k: 'DAY STREAK', sub: `Best ${best}` },
     { ico: 'check', c: 'var(--accent)', v: state.history.length, k: 'TASKS DONE', sub: `${perDay.get(today) || 0} today` },
-    { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET', sub: `${activeGoals().length} in progress` },
+    { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET', sub: `${goalsInMonth(state, monthKey(now)).length}/${GOALS_PER_MONTH} this month` },
     { ico: 'star', c: 'var(--gold)', v: `${msDone}/${MILESTONES.length}`, k: 'MILESTONES', sub: `Era ${eraOf(state).n}` },
   ];
 
@@ -779,11 +797,26 @@ $('#taskDelete').addEventListener('click', async () => {
   save(); renderAll();
 });
 
-// goal dialog: add + edit, quick deadlines, live preview
+// goal dialog: add + edit, month picker (this month or next), live preview
 let editingGoalId = null;
 const goalForm = $('#goalForm');
 const gField = (n) => goalForm.elements.namedItem(n);
-const goalMinDate = (g) => dayKey((g ? g.created : Date.now()) + 7 * DAY);
+const pickedMonth = () => goalForm.querySelector('[name="month"]:checked')?.value;
+
+function renderMonthPicker(g) {
+  const now = Date.now();
+  const want = g ? g.month : goalMonths(now).find((mk) => monthRoom(mk) > 0);
+  $('#goalMonthPicker').querySelectorAll('.tile').forEach((t) => t.remove());
+  $('#goalMonthPicker').insertAdjacentHTML('beforeend', goalMonths(now).map((mk, i) => {
+    const room = monthRoom(mk, g?.id);
+    const due = new Date(monthLastDay(mk) + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const left = Math.ceil((new Date(monthLastDay(mk) + 'T23:59:59') - now) / DAY);
+    const when = i === 0 ? (left <= 1 ? 'Last day' : `${left} days left`) : `Starts ${new Date(monthStart(mk)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    return `<label class="tile"><input type="radio" name="month" value="${mk}"${mk === want ? ' checked' : ''}${room > 0 ? '' : ' disabled'}>
+      <span class="t">${monthName(mk).toUpperCase()}</span><span class="s">${when} · due ${due}</span>
+      <span class="s">${room > 0 ? `${GOALS_PER_MONTH - room}/${GOALS_PER_MONTH} set` : 'Full · 3/3 set'}</span></label>`;
+  }).join(''));
+}
 
 function updateGoalPreview() {
   const cat = goalForm.querySelector('[name="cat"]:checked').value;
@@ -791,33 +824,21 @@ function updateGoalPreview() {
   const target = parseFloat(gField('target').value);
   const current = editingGoalId ? parseFloat(gField('current').value) || 0 : 0;
   const unit = gField('unit').value.trim();
-  const dl = gField('deadline').value;
-  const days = dl ? Math.max(1, Math.ceil((new Date(dl + 'T23:59:59') - Date.now()) / DAY)) : 0;
+  const mk = pickedMonth();
+  const end = mk ? new Date(monthLastDay(mk) + 'T23:59:59').getTime() : 0;
+  const days = mk ? Math.max(1, Math.ceil((end - Math.max(Date.now(), monthStart(mk))) / DAY)) : 0;
   const remain = target - current;
-  const pace = !(target > 0) || !days ? 'Set a target and deadline to see the pace.'
+  const pace = !(target > 0) || !days ? 'Set a target to see the pace.'
     : remain <= 0 ? 'Target already met.'
-    : `About ${fmtNum(remain / days)}${unit ? ' ' + esc(unit) : ''} a day over ${days} days.`;
+    : `About ${fmtNum(remain / days)}${unit ? ' ' + esc(unit) : ''} a day over ${days} days of ${monthName(mk)}.`;
   $('#goalPreview').innerHTML = `<span class="label">ON COMPLETE</span>
     <span class="chip reward">${icon('star')}+${GOAL_RES} ${sysShort(cat)}</span>
     <span class="chip reward">${icon('steady')}+${GOAL_GEN}/h lasting</span>
     <span class="chip reward">${icon('flag')}Landmark</span>
     <span class="pv-desc">${pace}</span>`;
-  goalForm.querySelectorAll('[data-days]').forEach((b) => {
-    b.setAttribute('aria-pressed', String(dl === quickDate(b.dataset.days)));
-  });
 }
-const quickDate = (days) => {
-  const d = dayKey(Date.now() + Number(days) * DAY), min = gField('deadline').min;
-  return d < min ? min : d;
-};
 goalForm.addEventListener('input', updateGoalPreview);
 goalForm.addEventListener('change', updateGoalPreview);
-goalForm.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-days]');
-  if (!b) return;
-  gField('deadline').value = quickDate(b.dataset.days);
-  updateGoalPreview();
-});
 
 function openGoalDlg(g) {
   goalForm.reset();
@@ -826,16 +847,13 @@ function openGoalDlg(g) {
   $('#goalSubmit').textContent = g ? 'SAVE' : 'SET GOAL';
   $('#goalAbandon').hidden = !g;
   $('#goalProgressRow').hidden = !g;
-  gField('deadline').min = goalMinDate(g);
+  renderMonthPicker(g);
   if (g) {
     gField('name').value = g.name;
     gField('target').value = g.target;
     gField('unit').value = g.unit;
     gField('current').value = fmtNum(g.current);
-    gField('deadline').value = g.deadline;
     goalForm.querySelector(`[name="cat"][value="${g.cat}"]`).checked = true;
-  } else {
-    gField('deadline').value = dayKey(Date.now() + 14 * DAY);
   }
   updateGoalPreview();
   $('#goalDlg').showModal();
@@ -846,16 +864,17 @@ goalForm.addEventListener('submit', (e) => {
   const g = editingGoalId && state.goals.find((x) => x.id === editingGoalId);
   const data = {
     name: String(f.get('name')).trim(), target: parseFloat(f.get('target')), unit: String(f.get('unit')).trim(),
-    cat: f.get('cat'), deadline: String(f.get('deadline')),
+    cat: f.get('cat'), month: String(f.get('month') || ''),
   };
-  if (data.deadline < goalMinDate(g)) { e.preventDefault(); return; } // the date input's min already blocks this
+  // the month must be this month or next, with a free slot (full months are disabled in the picker)
+  if (!goalMonths().includes(data.month) || monthRoom(data.month, g?.id) <= 0) { e.preventDefault(); return; }
+  data.deadline = monthLastDay(data.month);
   if (g) {
     Object.assign(g, data);
     g.current = Math.max(0, parseFloat(f.get('current')) || 0);
     goalProgress(state, g, 0, Date.now(), pending); // completes it if the target is now met
     if (!g.done) toast('Goal updated');
   } else {
-    if (activeGoals().length >= MAX_GOALS) { e.preventDefault(); return; }
     state.goals.push({ id: uid(), ...data, current: 0, created: Date.now() });
   }
   editingGoalId = null;
@@ -866,7 +885,7 @@ goalForm.addEventListener('submit', (e) => {
 $('#goalAbandon').addEventListener('click', async () => {
   const g = state.goals.find((x) => x.id === editingGoalId);
   if (!g) return;
-  if (!(await ask({ title: 'ABANDON GOAL?', body: `"${g.name}" and its progress (${fmtNum(g.current)} ${g.unit}) will be lost, and its slot frees up.`, ok: 'ABANDON', danger: true }))) return;
+  if (!(await ask({ title: 'ABANDON GOAL?', body: `"${g.name}" and its progress (${fmtNum(g.current)} ${g.unit}) will be lost, and its ${monthName(g.month)} slot frees up.`, ok: 'ABANDON', danger: true }))) return;
   state.goals = state.goals.filter((x) => x.id !== editingGoalId);
   editingGoalId = null;
   $('#goalDlg').close();
@@ -934,7 +953,7 @@ function occurrences(from, to) {
     }
   }
   for (const g of state.goals) {
-    if (g.done) continue;
+    if (g.done || g.missed) continue;
     const s = new Date(g.deadline + 'T00:00').getTime();
     const e = addDays(new Date(s), 1).getTime();
     if (s < to && e > from) out.push({ id: 'goal@' + g.id, goal: g, start: s, end: e, allDay: true, title: g.name + ' · due', cat: g.cat });
@@ -1438,6 +1457,7 @@ async function importSave(text) {
   if (data && !data.cal) data.cal = [];
   if (!data || data.v !== 1 || !data.res) { saveMsg.textContent = "That isn't a Planet Growth save. Check you copied all of it."; return; }
   if (!(await ask({ title: 'REPLACE THIS WORLD?', body: `Loads "${data.name}". Your current world is replaced.`, ok: 'LOAD SAVE', danger: true }))) return;
+  expireGoals(data, Date.now());
   state = data; save(); renderAll(); renderStats();
   saveBox.hidden = true;
   toast('Save loaded');
@@ -1481,7 +1501,7 @@ function syncFab() {
   const goals = view === 'goals';
   fab.dataset.open = goals ? 'goalDlg' : view === 'calendar' ? 'calDlg' : 'taskDlg';
   fab.setAttribute('aria-label', goals ? 'New goal' : view === 'calendar' ? 'New event' : 'New task');
-  fab.hidden = goals && activeGoals().length >= MAX_GOALS;
+  fab.hidden = goals && !canAddGoal();
 }
 document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.tab)));
 document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.addEventListener('click', () => {

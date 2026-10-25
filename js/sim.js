@@ -179,9 +179,33 @@ function rollDays(state, now, events) {
       events.push(ev);
     }
   }
+  expireGoals(state, now);
   // one-off tasks completed on earlier days are archived
   state.tasks = state.tasks.filter((x) => x.recurring || !state.history.some((h) => h.taskId === x.id && dayKey(h.t) < today));
   state.lastDay = today;
+}
+
+// Goals are monthly: each belongs to one calendar month and is due on its last day.
+// Up to 3 per month; achieved goals keep their slot, abandoned ones free it.
+export const GOALS_PER_MONTH = 3;
+export const monthKey = (t) => dayKey(t).slice(0, 7); // "2026-10"
+const ym = (mk) => mk.split('-').map(Number);
+export const monthAfter = (mk) => { const [y, m] = ym(mk); return monthKey(new Date(y, m, 1)); };
+export const monthLastDay = (mk) => { const [y, m] = ym(mk); return dayKey(new Date(y, m, 0)); };
+export const monthStart = (mk) => { const [y, m] = ym(mk); return new Date(y, m - 1, 1).getTime(); };
+// older saves have only a deadline; their month is the deadline's month
+export const goalMonth = (g) => g.month || String(g.deadline || dayKey(g.created)).slice(0, 7);
+export const goalsInMonth = (state, mk) => state.goals.filter((g) => !g.missed && goalMonth(g) === mk);
+export const openGoals = (state) => state.goals.filter((g) => !g.done && !g.missed);
+
+// Unfinished goals from a month that has ended are marked missed.
+export function expireGoals(state, now) {
+  const cur = monthKey(now);
+  for (const g of state.goals) {
+    g.month = goalMonth(g);
+    g.deadline = monthLastDay(g.month);
+    if (!g.done && !g.missed && g.month < cur) g.missed = now;
+  }
 }
 
 export function isDoneToday(state, task, now) {
@@ -224,7 +248,7 @@ export function uncompleteTask(state, task, now) {
 }
 
 export function goalProgress(state, goal, amount, now, events) {
-  if (goal.done) return;
+  if (goal.done || goal.missed) return;
   goal.current = Math.max(0, goal.current + amount);
   if (goal.current >= goal.target) {
     goal.done = now;

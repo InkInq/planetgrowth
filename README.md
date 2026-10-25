@@ -38,7 +38,7 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 **Daily vs goals**
 
 - Daily tasks repeat and keep your baseline rates healthy.
-- Goals are scarce: at most 3 at once, a deadline at least 7 days out, and a measurable target. Completing one gives a large boost and leaves a mark on the globe.
+- Goals are monthly: each belongs to a calendar month (this month or next) and is due on its last day. At most 3 per month; met goals keep their slot, abandoned ones free it. Unfinished goals are marked missed when the month ends. Each needs a measurable target. Completing one gives a large boost and leaves a mark on the globe.
 
 **Decay**
 
