@@ -84,6 +84,8 @@ export function newState(now) {
       mk('Message a friend', 'LIFE', 'steady'),
     ],
     goals: [],
+    focus: null, // the running focus session, if any
+    focusLog: [], // finished focus rounds: {t (end), mins, goalId}
     cal: [], // calendar events: {id, title, start, end, allDay, repeat, until, skip[], cat, notes}
     history: [], // {taskId, name, cat, t}
     events: [
@@ -266,6 +268,22 @@ export function goalReward(g) {
 }
 export const goalStarted = (g, now) => goalMonth(g) <= monthKey(now);
 const goalOpen = (g) => !!g && !g.done && !g.missed;
+
+// Focus sessions (pomodoros) log time toward a goal. Time units take the minutes,
+// "pomodoros"/"sessions" count 1 per round, and any other unit just counts as a day worked.
+const TIME_UNITS = [[/^(m|min|mins|minute|minutes)$/i, 1], [/^(h|hr|hrs|hour|hours)$/i, 1 / 60]];
+export function focusAmount(unit, mins) {
+  const u = String(unit || '').trim();
+  for (const [re, k] of TIME_UNITS) if (re.test(u)) return +(mins * k).toFixed(2);
+  return /^(pomodoros?|poms?|sessions?|rounds?)$/i.test(u) ? 1 : 0;
+}
+export function goalFocus(state, goal, mins, t, events) {
+  if (!goalOpen(goal) || !goalStarted(goal, t)) return null;
+  const amt = focusAmount(goal.unit, mins);
+  if (amt > 0) goalProgress(state, goal, amt, t, events);
+  else (goal.log ||= []).push({ t, amt: 0, focus: mins });
+  return amt;
+}
 
 // amount > 0 records a contribution (from a log, or from the linked task taskId);
 // amount < 0 takes back today's matching contribution; 0 only re-checks the target.

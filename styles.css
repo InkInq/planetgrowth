@@ -274,6 +274,38 @@ button { cursor: pointer; }
 .achieved .px { width: 16px; height: 16px; }
 .achieved .name { font-size: 20px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .achieved .meta { font-size: 16px; color: var(--muted); white-space: nowrap; }
+/* focus (pomodoro) */
+.focus-pill { cursor: pointer; background: none; font-family: var(--pixel); font-size: 12px; }
+.focus-pill:hover { border-color: var(--accent); color: var(--accent); }
+.focus-pill.running { color: var(--bg); background: var(--accent); border-color: var(--accent); font-variant-numeric: tabular-nums; }
+.focus-pill.running.break { background: var(--good); border-color: var(--good); }
+.focus-pill.running.paused { color: var(--accent); background: none; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.45; } }
+.focus-setup, .focus-run { display: flex; flex-direction: column; gap: 12px; }
+.focus-goals { grid-template-columns: 1fr; gap: 6px; max-height: 240px; overflow-y: auto; }
+.focus-goals .tile-row { padding: 8px 10px; }
+.fg-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fg-text .t { font-family: var(--body); font-size: 19px; letter-spacing: 0; text-transform: none; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-row .fchip { --c: var(--form-c, var(--accent)); min-width: 64px; justify-content: center; }
+.focus-run { --c: var(--form-c, var(--accent)); align-items: stretch; text-align: center; }
+.focus-run.break { --c: var(--good); }
+.focus-phase { font-family: var(--pixel); font-size: 11px; letter-spacing: 2px; color: var(--c); }
+.focus-clock { font-family: var(--pixel); font-size: 64px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text); }
+.focus-run .meter { --seg-gap: var(--panel-solid); height: 14px; }
+.focus-dots { display: flex; justify-content: center; gap: 8px; }
+.focus-dots span { width: 14px; height: 14px; border: 2px solid var(--line-2); }
+.focus-dots span.done { background: var(--c); border-color: var(--c); }
+.focus-dots span.now { border-color: var(--c); animation: blink 1s steps(2) infinite; }
+.focus-goal { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 18px; color: var(--muted); }
+.focus-goal > span { color: var(--c); }
+.focus-go { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.focus-go + .btn-log { margin-left: 0; }
+.focus-go .px { color: var(--c); }
+.focus-bar { width: 120px; height: 10px; background: var(--line); }
+.focus-bar > span { display: block; height: 100%; background: var(--c); }
+.cal-ev.focus { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 22%, var(--card)) 0 6px, color-mix(in srgb, var(--c) 12%, var(--card)) 6px 12px); border-left-style: dashed; cursor: default; }
+
 /* growing goal reward */
 .goal-pot { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 2px dashed color-mix(in srgb, var(--gold) 45%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, transparent); }
 .pot-head { display: flex; align-items: center; gap: 8px; color: var(--gold); flex-wrap: wrap; }
@@ -651,10 +683,15 @@ body[data-view="calendar"] .panel.left { overflow: hidden; }
   :root { --tabbar-h: calc(60px + env(safe-area-inset-bottom)); }
   .top { padding: env(safe-area-inset-top) 14px 0; height: calc(56px + env(safe-area-inset-top)); }
   .mini-globe { width: 32px; height: 32px; }
-  .world-name { font-size: 12px; letter-spacing: 1px; max-width: 52vw; }
+  .top-left { flex: 1 1 auto; min-width: 0; }
+  .world-id { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+  .world-name { font-size: 12px; letter-spacing: 1px; max-width: 100%; }
   .edit-ico { opacity: 0.6; }
   .era-bar { width: 56px; }
   .era-next, .cycle-pill { display: none; }
+  .focus-pill { padding: 0 6px; }
+  .focus-pill:not(.running) #focusPillText { display: none; }
+  .focus-clock { font-size: 52px; }
   .pill { height: 32px; padding: 0 8px; }
   .desktop-only { display: none; }
   .layout { display: block; height: calc(100% - 56px - env(safe-area-inset-top)); }

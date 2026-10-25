@@ -46,6 +46,14 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 
 Missing two or more daily tasks in a category spawns a **blight** (Deep Cooling, Dust Storm, Withering) that drains that system until you complete two tasks of that category.
 
+**Focus sessions (pomodoro)**
+
+Start a focus session from the FOCUS button in the top bar, or from a goal card to tag it to that goal. Pick a round length (15–60 min) and 1–4 rounds with 5-minute breaks between.
+
+- Each finished round logs to its tagged goal: goals measured in minutes or hours get the time, goals counted in pomodoros or sessions get +1, and any other unit counts it as a day worked (so the reward still grows).
+- The countdown shows in the top bar and the tab title, survives reloads, and chimes between rounds (can be turned off). Pause anytime; ending early asks whether to log the minutes done.
+- Finished rounds show as blocks on the calendar and are summed up in Stats.
+
 **Calendar**
 
 A Calendar tab in the left column works like Google Calendar's phone app:

@@ -2,7 +2,7 @@ import {
   CATS, SYSTEMS, TYPES, MILESTONES, BLIGHTS, DAY, HOUR,
   newState, advance, rates, completeTask, uncompleteTask, isDoneToday, goalProgress,
   nextMilestone, milestoneProgress, forecast, visuals, eraOf, stats, uid, dayKey, fmtDuration,
-  GOALS_PER_MONTH, GOAL_REWARD, goalReward, goalStarted, monthKey, monthAfter, monthLastDay, monthStart, goalMonth, goalsInMonth, openGoals, expireGoals,
+  focusAmount, goalFocus, GOALS_PER_MONTH, GOAL_REWARD, goalReward, goalStarted, monthKey, monthAfter, monthLastDay, monthStart, goalMonth, goalsInMonth, openGoals, expireGoals,
 } from './sim.js';
 import { Globe } from './globe.js';
 import { icon } from './icons.js';
@@ -26,6 +26,8 @@ function save() {
 
 let state = load();
 state.cal ||= []; // saves from before the calendar existed
+state.focusLog ||= []; // ...or before focus sessions
+state.focus ||= null;
 expireGoals(state, Date.now()); // gives older goals a month, and closes out months that have ended
 let selected = null; // selected event id
 const pending = [];
@@ -402,6 +404,7 @@ function goalCard(g, now) {
       <button type="button" class="step" data-step="-1" data-goal="${g.id}" aria-label="Less">${icon('minus')}</button>
       <input type="number" step="any" min="0" value="1" inputmode="decimal" data-amt="${g.id}" aria-label="Amount to log for ${esc(g.name)}">
       <button type="button" class="step" data-step="1" data-goal="${g.id}" aria-label="More">${icon('plus')}</button>
+      <button type="button" class="btn-sm focus-go" data-focus="${g.id}" title="Start a focus session for this goal">${icon('clock')}FOCUS</button>
       <button type="button" class="btn-log" data-log="${g.id}">LOG</button>
     </div>
   </li>`;
@@ -577,6 +580,21 @@ function heatmap(perDay, now) {
       <span class="hm-legend">LESS${[0, 1, 2, 3, 4].map((l) => `<span class="hm l${l}"></span>`).join('')}MORE</span></div>`;
 }
 
+function focusStats(now) {
+  const since = startOfDay(now - 6 * DAY).getTime();
+  const rounds = (state.focusLog || []).filter((f) => f.t >= since);
+  if (!rounds.length) return '';
+  const total = rounds.reduce((n, f) => n + f.mins, 0);
+  const byGoal = new Map();
+  for (const f of rounds) byGoal.set(f.goalId || '', (byGoal.get(f.goalId || '') || 0) + f.mins);
+  const rows = [...byGoal].sort((a, b) => b[1] - a[1]).map(([id, mins]) => {
+    const g = state.goals.find((x) => x.id === id);
+    return `<div class="rel-row" style="--c:${g ? CATS[g.cat].color : 'var(--muted)'}"><span class="rel-name"><span class="rel-ico">${icon(g ? 'flag' : 'clock')}</span>${g ? esc(g.name) : 'No goal'}</span>
+      <span class="focus-bar"><span style="width:${mins / total * 100}%"></span></span><span class="rel-pct">${fmtMins(mins)}</span></div>`;
+  }).join('');
+  return `<section class="stat-section"><div class="label">FOCUS · LAST 7 DAYS · ${fmtMins(total)} IN ${rounds.length} ROUND${rounds.length === 1 ? '' : 'S'}</div>${rows}</section>`;
+}
+
 function renderStats() {
   const now = Date.now();
   const s = stats(state, now);
@@ -643,6 +661,7 @@ function renderStats() {
       <div class="label">ACTIVITY</div>
       ${heatmap(perDay, now)}
     </section>
+    ${focusStats(now)}
     <section class="stat-section">
       <div class="label">DAILY TASKS · LAST 7 DAYS</div>
       <div class="cat-stats">${catCards}</div>
@@ -706,6 +725,8 @@ $('#goalList').addEventListener('click', (e) => {
   }
   const log = e.target.closest('[data-log]');
   if (log) { logGoal(log); return; }
+  const focus = e.target.closest('[data-focus]');
+  if (focus) { openFocus(focus.dataset.focus); return; }
   const edit = e.target.closest('[data-editgoal]');
   if (edit) openGoalDlg(state.goals.find((x) => x.id === edit.dataset.editgoal));
 });
@@ -1009,6 +1030,12 @@ function occurrences(from, to) {
     const e = addDays(new Date(s), 1).getTime();
     if (s < to && e > from) out.push({ id: 'goal@' + g.id, goal: g, start: s, end: e, allDay: true, title: g.name + ' · due', cat: g.cat });
   }
+  for (const f of state.focusLog || []) {
+    const s = f.t - f.mins * 60000;
+    if (s >= to || f.t <= from || f.mins < 1) continue;
+    const g = f.goalId && state.goals.find((x) => x.id === f.goalId);
+    out.push({ id: 'focus@' + f.t, focus: f, start: s, end: f.t, allDay: false, title: 'Focus' + (g ? ' · ' + g.name : ''), cat: g ? g.cat : null });
+  }
   out.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
   occMap.clear();
   for (const o of out) occMap.set(o.id, o);
@@ -1041,10 +1068,10 @@ function evBlock(seg, dayEnd) {
   const h = Math.max(18, (endMin - minutesOf(seg.a)) / 60 * HOUR_PX - 1);
   const w = 100 / seg.lanes;
   const tall = h >= 34;
-  return `<button type="button" class="cal-ev${o.end < Date.now() ? ' past' : ''}${tall ? '' : ' short'}" data-occ="${o.id}"
+  return `<button type="button" class="cal-ev${o.end < Date.now() ? ' past' : ''}${tall ? '' : ' short'}${o.focus ? ' focus' : ''}" data-occ="${o.id}"
     style="--c:${calColor(o.cat)};top:${top}px;height:${h}px;left:calc(${seg.lane * w}% + 1px);width:calc(${w}% - 3px)">
     <span class="ev-t">${evTitle(o)}</span>${tall ? `<span class="ev-time">${fmtTime(o.start)} – ${fmtTime(o.end)}</span>` : ''}
-    ${seg.b === o.end ? '<span class="ev-resize" aria-hidden="true"></span>' : ''}</button>`;
+    ${o.ev && seg.b === o.end ? '<span class="ev-resize" aria-hidden="true"></span>' : ''}</button>`;
 }
 
 function renderTimeGrid(range, occ) {
@@ -1246,7 +1273,7 @@ calBody.addEventListener('pointercancel', () => { if (calDrag?.ghost) calDrag.gh
 calBody.addEventListener('click', (e) => {
   const item = e.target.closest('[data-occ]');
   // time-grid blocks open on pointerup; a click with detail 0 is the keyboard (Enter/Space)
-  if (item && (!item.classList.contains('cal-ev') || e.detail === 0)) { openEventDlg(occMap.get(item.dataset.occ)); return; }
+  if (item && (!item.classList.contains('cal-ev') || e.detail === 0 || item.classList.contains('focus'))) { openEventDlg(occMap.get(item.dataset.occ)); return; }
   const day = !item && e.target.closest('[data-goday]');
   if (day) calGoTo(new Date(day.dataset.goday + 'T00:00'), 'day');
 });
@@ -1339,6 +1366,12 @@ calForm.addEventListener('change', (e) => { if (e.target.name === 'calcat' || e.
 
 function openEventDlg(occ, preset) {
   if (occ && occ.goal) { openGoalDlg(occ.goal); return; }
+  if (occ && occ.focus) { // a finished focus round: show its goal, if it had one
+    const g = state.goals.find((x) => x.id === occ.focus.goalId);
+    if (g && !g.done && !g.missed) openGoalDlg(g);
+    else toast(`Focus · ${occ.focus.mins} min · ${fmtTime(occ.start)} – ${fmtTime(occ.end)}`);
+    return;
+  }
   calForm.reset();
   calEditing = occ ? { ev: occ.ev, occ } : null;
   let src;
@@ -1437,6 +1470,204 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// ---------- focus (pomodoro) ----------
+// A session is 1–4 focus rounds with 5-minute breaks between. It's stored in state with
+// timestamps, so it keeps counting through reloads and while the tab is in the background.
+// Each finished round is logged to its goal (see goalFocus in sim.js) and to state.focusLog.
+const FOCUS_LENGTHS = [15, 25, 30, 45, 60];
+const FOCUS_BREAK = 5;
+const FOCUS_SOUND_KEY = 'planetgrowth-focus-sound';
+const focusSel = { goalId: '', mins: 25, rounds: 1 };
+let audioCtx = null;
+const baseTitle = document.title;
+
+const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const fmtMins = (m) => (m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + ' min');
+const focusGoalsOpen = () => state.goals.filter((g) => !g.done && !g.missed && goalStarted(g, Date.now()));
+
+function focusPlan(f) {
+  const focusMs = f.mins * 60000, per = (f.mins + f.breakMins) * 60000;
+  return { focusMs, per, total: f.rounds * focusMs + (f.rounds - 1) * f.breakMins * 60000 };
+}
+function focusPhase(f, now) {
+  const p = focusPlan(f);
+  const el = Math.max(0, Math.min((f.pausedAt ?? now) - f.startedAt - f.pausedTotal, p.total));
+  const round = Math.min(f.rounds - 1, Math.floor(el / p.per));
+  const into = el - round * p.per;
+  const focusing = into < p.focusMs;
+  return {
+    ...p, el, round, focusing,
+    left: focusing ? p.focusMs - into : p.per - into,
+    phaseLen: focusing ? p.focusMs : p.per - p.focusMs,
+    roundsDone: el >= p.focusMs ? Math.min(f.rounds, Math.floor((el - p.focusMs) / p.per) + 1) : 0,
+    finished: el >= p.total,
+  };
+}
+// What a round does for a goal, in words: "+30 min", "+0.5 hours", "+1 pomodoro", or a day worked
+function focusEffect(g, mins) {
+  if (!g) return 'Just focus. Nothing is logged to a goal.';
+  const amt = focusAmount(g.unit, mins);
+  return amt > 0 ? `+${fmtNum(amt)} ${esc(g.unit)} to ${esc(g.name)} per round` : `Counts as a day worked on ${esc(g.name)} (its unit, ${esc(g.unit)}, isn't time)`;
+}
+
+function chime(kind) {
+  if (!$('#focusSound').checked) return;
+  try {
+    audioCtx ||= new AudioContext();
+    const notes = kind === 'start' ? [523, 784] : [784, 659, 523];
+    notes.forEach((hz, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(), at = audioCtx.currentTime + i * 0.16;
+      o.type = 'square'; o.frequency.value = hz;
+      g.gain.setValueAtTime(0.05, at); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.15);
+      o.connect(g).connect(audioCtx.destination); o.start(at); o.stop(at + 0.16);
+    });
+    navigator.vibrate?.(kind === 'start' ? 80 : [120, 60, 120]);
+  } catch (e) { /* audio unavailable */ }
+}
+
+function logFocusRound(f, mins, t) {
+  state.focusLog.push({ t, mins, goalId: f.goalId || null });
+  const g = f.goalId && state.goals.find((x) => x.id === f.goalId);
+  const before = g ? goalReward(g).res : 0;
+  const amt = g ? goalFocus(state, g, mins, t, pending) : null;
+  const grew = g && !g.done && goalReward(g).res > before ? ` · reward grew to +${goalReward(g).res}` : '';
+  toast(`Focus round done · ${mins} min` + (g ? (amt > 0 ? ` · +${fmtNum(amt)} ${g.unit} to ${g.name}` : ` on ${g.name}`) : '') + grew);
+}
+
+// Called every frame-ish: logs rounds that have ended, plays chimes, ends the session.
+function focusTick(now = Date.now()) {
+  const f = state.focus;
+  if (f) {
+    const ph = focusPhase(f, now);
+    let changed = false;
+    while (f.logged < ph.roundsDone) {
+      logFocusRound(f, f.mins, Math.min(now, f.startedAt + f.pausedTotal + f.logged * ph.per + ph.focusMs));
+      f.logged++;
+      changed = true;
+      if (!ph.finished) chime('end');
+    }
+    const key = ph.round + (ph.focusing ? 'f' : 'b');
+    if (f.phaseKey && f.phaseKey !== key && ph.focusing && !changed) chime('start');
+    f.phaseKey = key;
+    if (ph.finished) {
+      state.focus = null;
+      chime('end');
+      toast(`Focus session complete · ${fmtMins(f.rounds * f.mins)}`);
+      changed = true;
+    }
+    if (changed) { save(); announce(pending); renderAll(); }
+  }
+  renderFocus(now);
+}
+
+function renderFocus(now = Date.now()) {
+  const f = state.focus;
+  const pill = $('#focusPill');
+  if (!f) {
+    $('#focusPillText').textContent = 'FOCUS';
+    pill.className = 'pill focus-pill';
+    document.title = baseTitle;
+    if ($('#focusDlg').open && !$('#focusRun').hidden) showFocusSetup();
+    return;
+  }
+  const ph = focusPhase(f, now);
+  const paused = f.pausedAt != null;
+  $('#focusPillText').textContent = (ph.focusing ? '' : 'BREAK ') + mmss(ph.left);
+  pill.className = 'pill focus-pill running' + (ph.focusing ? '' : ' break') + (paused ? ' paused' : '');
+  document.title = `${mmss(ph.left)} ${paused ? 'paused' : ph.focusing ? 'focus' : 'break'} · ${baseTitle}`;
+  if (!$('#focusDlg').open || $('#focusRun').hidden) return;
+  const g = f.goalId && state.goals.find((x) => x.id === f.goalId);
+  $('#focusPhase').textContent = (paused ? 'PAUSED · ' : '') + (ph.focusing ? `FOCUS · ROUND ${ph.round + 1} OF ${f.rounds}` : `BREAK · ROUND ${ph.round + 2} NEXT`);
+  $('#focusClock').textContent = mmss(ph.left);
+  $('#focusRun').classList.toggle('break', !ph.focusing);
+  $('#focusMeter .fill').style.width = (100 - ph.left / ph.phaseLen * 100) + '%';
+  $('#focusDots').innerHTML = Array.from({ length: f.rounds }, (_, i) => `<span class="${i < f.logged ? 'done' : i === ph.round && ph.focusing ? 'now' : ''}"></span>`).join('');
+  $('#focusGoalLine').innerHTML = g ? `<span style="--c:${CATS[g.cat].color}">${icon('flag')}</span>${focusEffect(g, f.mins)}` : 'No goal tagged';
+  $('#focusPause').textContent = paused ? 'RESUME' : 'PAUSE';
+  $('#focusSub').textContent = `${f.rounds} × ${f.mins} min`;
+}
+
+function showFocusSetup() {
+  $('#focusSetup').hidden = false;
+  $('#focusRun').hidden = true;
+  $('#focusSub').textContent = '';
+  const goals = focusGoalsOpen();
+  if (focusSel.goalId && !goals.some((g) => g.id === focusSel.goalId)) focusSel.goalId = '';
+  $('#focusGoals').querySelectorAll('.tile, .empty').forEach((el) => el.remove());
+  $('#focusGoals').insertAdjacentHTML('beforeend', [{ id: '', name: 'No goal', cat: null }, ...goals].map((g) => `
+    <label class="tile tile-row" style="--c:${g.cat ? CATS[g.cat].color : 'var(--muted)'}"><input type="radio" name="focusGoal" value="${g.id}"${g.id === focusSel.goalId ? ' checked' : ''}>
+      <span class="ico">${icon(g.cat ? 'flag' : 'clock')}</span><span class="fg-text"><span class="t">${esc(g.name)}</span><span class="s" data-effect="${g.id}"></span></span></label>`).join('')
+    + (goals.length ? '' : '<p class="hint empty">No goals running this month. Set one to log focus time toward it.</p>'));
+  $('#focusLengths').innerHTML = FOCUS_LENGTHS.map((m) => `<button type="button" class="fchip" data-len="${m}" aria-pressed="${m === focusSel.mins}">${m} MIN</button>`).join('');
+  $('#focusRounds').innerHTML = [1, 2, 3, 4].map((n) => `<button type="button" class="fchip" data-rounds="${n}" aria-pressed="${n === focusSel.rounds}">${n}×</button>`).join('');
+  updateFocusPreview();
+}
+function updateFocusPreview() {
+  const g = state.goals.find((x) => x.id === focusSel.goalId);
+  $('#focusDlg').style.setProperty('--form-c', g ? CATS[g.cat].color : 'var(--accent)');
+  $('#focusGoals').querySelectorAll('[data-effect]').forEach((el) => {
+    const gg = state.goals.find((x) => x.id === el.dataset.effect);
+    el.textContent = gg ? (focusAmount(gg.unit, focusSel.mins) > 0 ? `+${fmtNum(focusAmount(gg.unit, focusSel.mins))} ${gg.unit} per round` : 'Counts as a day worked') : 'Focus without logging';
+  });
+  const total = focusSel.rounds * focusSel.mins + (focusSel.rounds - 1) * FOCUS_BREAK;
+  const ends = new Date(Date.now() + total * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  $('#focusPreview').innerHTML = `<span class="label">${focusSel.rounds} × ${focusSel.mins} MIN · ${fmtMins(focusSel.rounds * focusSel.mins)} OF FOCUS · DONE AROUND ${ends.toUpperCase()}</span>
+    <span class="pv-desc">${focusEffect(g, focusSel.mins)}.</span>`;
+}
+
+function openFocus(goalId) {
+  if (goalId !== undefined && !state.focus) focusSel.goalId = goalId;
+  if (state.focus) { $('#focusSetup').hidden = true; $('#focusRun').hidden = false; } else showFocusSetup();
+  $('#focusDlg').showModal();
+  renderFocus();
+}
+
+$('#focusPill').addEventListener('click', () => openFocus());
+$('#focusDlg').addEventListener('click', (e) => {
+  const len = e.target.closest('[data-len]'), rounds = e.target.closest('[data-rounds]');
+  if (len) focusSel.mins = Number(len.dataset.len);
+  if (rounds) focusSel.rounds = Number(rounds.dataset.rounds);
+  if (len || rounds) {
+    $('#focusDlg').querySelectorAll('[data-len]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.len) === focusSel.mins)));
+    $('#focusDlg').querySelectorAll('[data-rounds]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.rounds) === focusSel.rounds)));
+    updateFocusPreview();
+  }
+});
+$('#focusGoals').addEventListener('change', (e) => { focusSel.goalId = e.target.value; updateFocusPreview(); });
+try { $('#focusSound').checked = localStorage.getItem(FOCUS_SOUND_KEY) !== 'off'; } catch (e) { /* storage unavailable */ }
+$('#focusSound').addEventListener('change', (e) => { try { localStorage.setItem(FOCUS_SOUND_KEY, e.target.checked ? 'on' : 'off'); } catch (err) { /* ignore */ } });
+
+$('#focusStart').addEventListener('click', () => {
+  try { audioCtx ||= new AudioContext(); audioCtx.resume?.(); } catch (e) { /* audio unavailable */ }
+  state.focus = { goalId: focusSel.goalId || null, mins: focusSel.mins, breakMins: FOCUS_BREAK, rounds: focusSel.rounds, startedAt: Date.now(), pausedAt: null, pausedTotal: 0, logged: 0 };
+  save();
+  $('#focusSetup').hidden = true;
+  $('#focusRun').hidden = false;
+  chime('start');
+  renderFocus();
+});
+$('#focusPause').addEventListener('click', () => {
+  const f = state.focus;
+  if (!f) return;
+  if (f.pausedAt != null) { f.pausedTotal += Date.now() - f.pausedAt; f.pausedAt = null; } else f.pausedAt = Date.now();
+  save(); renderFocus();
+});
+$('#focusStop').addEventListener('click', async () => {
+  const f = state.focus;
+  if (!f) return;
+  const ph = focusPhase(f, Date.now());
+  const partial = ph.focusing ? Math.floor((ph.focusMs - ph.left) / 60000) : 0;
+  let r;
+  if (partial >= 1) r = await ask({ title: 'END SESSION?', body: `You've focused ${partial} min of this round. Log those minutes, or let the round go?`, ok: `LOG ${partial} MIN`, alt: 'DON’T LOG' });
+  else r = (await ask({ title: 'END SESSION?', body: f.logged ? `The ${f.logged} finished round${f.logged === 1 ? ' is' : 's are'} already logged.` : 'Nothing has been logged yet.', ok: 'END SESSION' })) ? 'alt' : false;
+  if (!r || !state.focus) return;
+  if (r === true) logFocusRound(f, partial, Date.now());
+  else toast('Focus session ended');
+  state.focus = null;
+  $('#focusDlg').close();
+  save(); announce(pending); renderAll(); renderFocus();
+});
+
 $('#worldName').addEventListener('click', async () => {
   const n = await ask({ title: 'NAME YOUR WORLD', ok: 'RENAME', input: state.name });
   if (n && n.trim()) { state.name = n.trim().slice(0, 28); save(); renderHeader(); }
@@ -1506,6 +1737,7 @@ async function importSave(text) {
   let data;
   try { data = JSON.parse(text); } catch (err) { data = null; }
   if (data && !data.cal) data.cal = [];
+  if (data && !data.focusLog) data.focusLog = [];
   if (!data || data.v !== 1 || !data.res) { saveMsg.textContent = "That isn't a Planet Growth save. Check you copied all of it."; return; }
   if (!(await ask({ title: 'REPLACE THIS WORLD?', body: `Loads "${data.name}". Your current world is replaced.`, ok: 'LOAD SAVE', danger: true }))) return;
   expireGoals(data, Date.now());
@@ -1566,7 +1798,7 @@ renderAll();
 announce(pending);
 
 let lastSim = 0, lastUi = 0, lastFrame = performance.now();
-let lastMini = -1e9;
+let lastMini = -1e9, lastFocus = 0;
 const miniCtx = $('#miniGlobe').getContext('2d');
 miniCtx.imageSmoothingEnabled = false;
 function frame(t) {
@@ -1581,6 +1813,7 @@ function frame(t) {
     lastSim = t;
   }
   if (t - lastUi > 5000) { renderHeader(); renderSystems(); updateNowLine(); save(); lastUi = t; }
+  if (t - lastFocus > 250) { focusTick(); lastFocus = t; }
   globe.render(visuals(state, Date.now()), t);
   if (t - lastMini > 250) { miniCtx.clearRect(0, 0, 56, 56); miniCtx.drawImage(globe.buf, 0, 0, 56, 56); lastMini = t; }
   placeNodes();
@@ -1589,7 +1822,7 @@ function frame(t) {
 requestAnimationFrame(frame);
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { advance(state, Date.now(), pending); announce(pending); renderAll(); }
+  if (document.visibilityState === 'visible') { advance(state, Date.now(), pending); focusTick(); announce(pending); renderAll(); }
   else save();
 });
 

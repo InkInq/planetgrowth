@@ -36,6 +36,7 @@
     </div>
   </div>
   <div class="top-right">
+    <button type="button" class="pill focus-pill" id="focusPill" title="Focus timer"><span data-icon="clock"></span><span id="focusPillText">FOCUS</span></button>
     <span class="pill cycle-pill" title="Days since your world was seeded"><span data-icon="clock"></span><span id="cycle">CYCLE 001</span></span>
     <span class="pill streak-pill" id="streakPill" title="Days in a row with at least one task done"><span data-icon="streak"></span><span id="streak">0</span></span>
     <button class="btn-ghost desktop-only stats-btn" type="button" data-open="statsDlg"><span data-icon="chart"></span>STATS</button>
@@ -157,6 +158,7 @@
       <label>Target<input name="target" type="number" min="0.01" step="any" required placeholder="5" inputmode="decimal"></label>
       <label>Unit<input name="unit" required maxlength="12" placeholder="km" autocomplete="off"></label>
     </div>
+    <p class="hint">Measuring time? Use minutes or hours as the unit, and focus sessions will log it for you.</p>
     <label id="goalProgressRow" hidden>Progress so far<input name="current" type="number" min="0" step="any" inputmode="decimal"></label>
     <fieldset class="picker cat-picker" id="goalCatPicker">
       <legend>Feeds</legend>
@@ -247,6 +249,44 @@
       <button type="submit" class="btn" value="ok">SAVE</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="focusDlg" class="dlg">
+  <div class="dlg-body">
+    <div class="dlg-head">
+      <h2>FOCUS</h2>
+      <span class="dlg-sub" id="focusSub"></span>
+      <button type="button" class="dlg-x" data-close aria-label="Close"><span data-icon="close"></span></button>
+    </div>
+    <div id="focusSetup" class="focus-setup">
+      <fieldset class="picker focus-goals" id="focusGoals">
+        <legend>Count it toward</legend>
+      </fieldset>
+      <fieldset class="picker">
+        <legend>Length of each round</legend>
+        <div class="chip-row" id="focusLengths"></div>
+      </fieldset>
+      <fieldset class="picker">
+        <legend>Rounds · 5 min break between</legend>
+        <div class="chip-row" id="focusRounds"></div>
+      </fieldset>
+      <div class="reward-preview" id="focusPreview"></div>
+      <label class="toggle-row"><input type="checkbox" id="focusSound" checked> Chime when a round or break ends</label>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" class="btn" id="focusStart">START FOCUS</button></div>
+    </div>
+    <div id="focusRun" class="focus-run" hidden>
+      <div class="focus-phase" id="focusPhase"></div>
+      <div class="focus-clock" id="focusClock" role="timer" aria-live="off"></div>
+      <div class="meter" id="focusMeter"><span class="fill"></span></div>
+      <div class="focus-dots" id="focusDots"></div>
+      <div class="focus-goal" id="focusGoalLine"></div>
+      <div class="dlg-actions">
+        <button type="button" class="btn-ghost danger" id="focusStop">END SESSION</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="focusPause">PAUSE</button>
+      </div>
+    </div>
+  </div>
 </dialog>
 
 <dialog id="askDlg" class="dlg">

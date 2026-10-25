@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, serve cache-first, refresh in the background.
-const CACHE = 'planetgrowth-v6';
+const CACHE = 'planetgrowth-v7';
 const SHELL = [
   './',
   './index.html',
