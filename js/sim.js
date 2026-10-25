@@ -215,7 +215,15 @@ export function isDoneToday(state, task, now) {
 
 export function completeTask(state, task, now, events) {
   const sys = CATS[task.cat].sys;
-  state.history.push({ taskId: task.id, name: task.name, cat: task.cat, t: now });
+  const h = { taskId: task.id, name: task.name, cat: task.cat, t: now };
+  state.history.push(h);
+  // a task linked to a goal adds its amount to that goal (once the goal's month has started)
+  const goal = task.goalId && state.goals.find((g) => g.id === task.goalId);
+  if (goalOpen(goal) && goalStarted(goal, now)) {
+    h.goal = goal.id;
+    h.goalAmt = task.goalAmt || 1;
+    goalProgress(state, goal, h.goalAmt, now, events, task.id);
+  }
   if (task.type === 'steady') state.gen[sys] += STEADY_GAIN;
   if (task.type === 'surge') state.surges.push({ sys, mult: SURGE_MULT, until: now + SURGE_HOURS * HOUR, name: task.name });
   if (task.type === 'catalyst') state.res[sys] += CATALYST_GAIN;
@@ -237,7 +245,8 @@ export function uncompleteTask(state, task, now) {
   const k = dayKey(now);
   const i = state.history.findIndex((h) => h.taskId === task.id && dayKey(h.t) === k);
   if (i < 0) return;
-  state.history.splice(i, 1);
+  const [h] = state.history.splice(i, 1);
+  if (h.goal) goalProgress(state, state.goals.find((g) => g.id === h.goal), -h.goalAmt, now, [], task.id);
   const sys = CATS[task.cat].sys;
   if (task.type === 'steady') state.gen[sys] = Math.max(0, state.gen[sys] - STEADY_GAIN);
   if (task.type === 'surge') {
@@ -247,15 +256,39 @@ export function uncompleteTask(state, task, now) {
   if (task.type === 'catalyst') state.res[sys] = Math.max(0, state.res[sys] - CATALYST_GAIN);
 }
 
-export function goalProgress(state, goal, amount, now, events) {
-  if (goal.done || goal.missed) return;
+// A goal's reward grows: a base amount, plus more for every day you work on it.
+// It's paid only when the goal is met; a missed goal loses it.
+export const GOAL_REWARD = { baseRes: 30, dayRes: 4, baseGen: 0.1, dayGen: 0.01 };
+export const goalDaysWorked = (g) => new Set((g.log || []).map((e) => dayKey(e.t))).size;
+export function goalReward(g) {
+  const days = goalDaysWorked(g);
+  return { days, res: GOAL_REWARD.baseRes + GOAL_REWARD.dayRes * days, gen: +(GOAL_REWARD.baseGen + GOAL_REWARD.dayGen * days).toFixed(2) };
+}
+export const goalStarted = (g, now) => goalMonth(g) <= monthKey(now);
+const goalOpen = (g) => !!g && !g.done && !g.missed;
+
+// amount > 0 records a contribution (from a log, or from the linked task taskId);
+// amount < 0 takes back today's matching contribution; 0 only re-checks the target.
+export function goalProgress(state, goal, amount, now, events, taskId = null) {
+  if (!goalOpen(goal)) return;
+  goal.log ||= [];
+  if (amount > 0) goal.log.push(taskId ? { t: now, amt: amount, task: taskId } : { t: now, amt: amount });
+  if (amount < 0) {
+    const k = dayKey(now);
+    for (let i = goal.log.length - 1; i >= 0; i--) {
+      const e = goal.log[i];
+      if (dayKey(e.t) === k && e.amt === -amount && (e.task || null) === taskId) { goal.log.splice(i, 1); break; }
+    }
+  }
   goal.current = Math.max(0, goal.current + amount);
   if (goal.current >= goal.target) {
     goal.done = now;
     const sys = CATS[goal.cat].sys;
-    state.res[sys] += 60;
-    state.gen[sys] += 0.3;
-    const ev = { id: uid(), kind: 'goal', title: 'Goal: ' + goal.name, body: 'A landmark achievement reshapes the world. +60 ' + SYSTEMS[sys].label + '.', t: now, lat: (Math.random() - 0.5) * 1.4, lon: Math.random() * Math.PI * 2, links: [goal.current + ' / ' + goal.target + ' ' + goal.unit] };
+    const r = goalReward(goal);
+    goal.paid = r;
+    state.res[sys] += r.res;
+    state.gen[sys] += r.gen;
+    const ev = { id: uid(), kind: 'goal', title: 'Goal: ' + goal.name, body: `A landmark achievement reshapes the world. +${r.res} ${SYSTEMS[sys].label}, +${r.gen}/h for good.`, t: now, lat: (Math.random() - 0.5) * 1.4, lon: Math.random() * Math.PI * 2, links: [goal.current + ' / ' + goal.target + ' ' + goal.unit, r.days + ' day' + (r.days === 1 ? '' : 's') + ' of work'] };
     state.events.push(ev);
     events.push(ev);
   }

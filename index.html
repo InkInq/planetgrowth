@@ -130,6 +130,14 @@
       <label class="tile tile-row"><input type="radio" name="recurring" value="1" checked><span class="ico" data-icon="repeat"></span><span class="t">DAILY</span></label>
       <label class="tile tile-row"><input type="radio" name="recurring" value="0"><span class="ico" data-icon="once"></span><span class="t">ONCE</span></label>
     </fieldset>
+    <fieldset class="picker goal-link">
+      <legend>Counts toward a goal</legend>
+      <div class="goal-link-row">
+        <select id="taskGoal" name="goalId" aria-label="Goal this task counts toward"></select>
+        <label class="goal-amt" id="taskGoalAmtRow">Each time adds<span class="amt-row"><input type="number" id="taskGoalAmt" name="goalAmt" min="0.01" step="any" value="1" inputmode="decimal" aria-label="Amount added to the goal"><span id="taskGoalUnit"></span></span></label>
+      </div>
+      <p class="hint" id="taskGoalHint" hidden></p>
+    </fieldset>
     <div class="reward-preview" id="taskPreview"></div>
     <p class="hint" id="lockHint" hidden>Done today, so its category and effect are locked. Uncheck it to change them.</p>
     <div class="dlg-actions">

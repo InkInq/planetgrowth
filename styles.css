@@ -274,6 +274,20 @@ button { cursor: pointer; }
 .achieved .px { width: 16px; height: 16px; }
 .achieved .name { font-size: 20px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .achieved .meta { font-size: 16px; color: var(--muted); white-space: nowrap; }
+/* growing goal reward */
+.goal-pot { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 2px dashed color-mix(in srgb, var(--gold) 45%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, transparent); }
+.pot-head { display: flex; align-items: center; gap: 8px; color: var(--gold); flex-wrap: wrap; }
+.pot-head .px { width: 16px; height: 16px; }
+.pot-v { font-family: var(--pixel); font-size: 13px; }
+.pot-k { margin-left: auto; font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.pot-today { display: flex; align-items: center; gap: 6px; font-size: 16px; color: var(--muted); }
+.pot-today.on { color: var(--good); }
+.fed-by { font-size: 16px; color: var(--muted); }
+.fed-by b { font-weight: 400; color: var(--c); }
+.goal-later { display: flex; align-items: center; gap: 6px; padding: 0 12px 12px 14px; font-size: 16px; color: var(--muted); }
+.goal-link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.goal-amt .amt-row { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.dlg .goal-link .goal-amt input[type="number"] { width: 84px; }
 .achieved.missed { color: var(--done); }
 .achieved.missed .name { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 2px; }
 .slot.done { background: var(--c); color: var(--bg); }

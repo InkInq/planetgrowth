@@ -38,7 +38,9 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 **Daily vs goals**
 
 - Daily tasks repeat and keep your baseline rates healthy.
-- Goals are monthly: each belongs to a calendar month (this month or next) and is due on its last day. At most 3 per month; met goals keep their slot, abandoned ones free it. Unfinished goals are marked missed when the month ends. Each needs a measurable target. Completing one gives a large boost and leaves a mark on the globe.
+- Goals are monthly: each belongs to a calendar month (this month or next) and is due on its last day. At most 3 per month; met goals keep their slot, abandoned ones free it. Unfinished goals are marked missed when the month ends. Each needs a measurable target.
+- Each goal holds a reward that grows: +30 to its system and +0.1/h to start, plus +4 and +0.01/h for every day you work on it (a manual log or a linked task). It's paid when you meet the goal and lost if the month ends first, so steady work pays more than a last-minute push. Meeting a goal also leaves a landmark on the globe.
+- A task can count toward a goal: link it in the task editor and set how much each completion adds (e.g. Evening run → +5 km). Checking the task off logs that amount; unchecking takes it back. Next month's goals start counting when their month begins.
 
 **Decay**
 
