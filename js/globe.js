@@ -78,6 +78,7 @@ export class Globe {
     this.height = fbm(TW, TH, 3, [32, 16, 8], [0.55, 0.3, 0.15]);
     this.clouds = fbm(TW, TH, 41, [24, 10, 5], [0.5, 0.35, 0.15]);
     this.applyCraters();
+    this.buildSeaLevels();
     // precompute sphere geometry
     const n = RES * RES;
     this.geo = { inside: new Uint8Array(n), lonOff: new Float32Array(n), lat: new Float32Array(n), shade: new Float32Array(n), d: new Float32Array(n), nx: new Float32Array(n), ny: new Float32Array(n) };
@@ -105,6 +106,32 @@ export class Globe {
   setTheme(rim, halo) {
     if (/^#[0-9a-f]{6}$/i.test(rim)) this.rim = hex(rim);
     if (/^#[0-9a-f]{6}$/i.test(halo)) this.halo = hex(halo);
+  }
+
+  // seaLevels[i] is the height that puts i% of the planet's surface under water.
+  // Water then sets how much of the surface is ocean, so the sea grows evenly instead of flooding at once.
+  buildSeaLevels() {
+    const pts = [];
+    let total = 0;
+    for (let y = 0; y < TH; y++) {
+      const w = Math.cos((0.5 - (y + 0.5) / TH) * Math.PI); // texels near the poles cover less area
+      for (let x = 0; x < TW; x++) pts.push([this.height[y * TW + x] - 0.5, w]);
+      total += w * TW;
+    }
+    pts.sort((a, b) => a[0] - b[0]);
+    this.seaLevels = new Float32Array(101);
+    this.seaLevels[0] = pts[0][0] - 0.01; // dry: just below the lowest ground
+    let acc = 0, k = 1;
+    for (const [h, w] of pts) {
+      acc += w;
+      while (k <= 100 && acc / total >= k / 100) this.seaLevels[k++] = h;
+    }
+    while (k <= 100) this.seaLevels[k++] = pts[pts.length - 1][0];
+  }
+
+  seaLevelFor(coverage) {
+    const x = Math.max(0, Math.min(1, coverage)) * 100, i = Math.floor(x), f = x - i;
+    return i >= 100 ? this.seaLevels[100] : this.seaLevels[i] + (this.seaLevels[i + 1] - this.seaLevels[i]) * f;
   }
 
   applyCraters() {
@@ -148,7 +175,8 @@ export class Globe {
     const g = this.geo;
     const HALO = this.halo, RIM = this.rim;
     const iceLat = 1.02 + (1 - vis.ice) * 0.5; // caps shrink as ice melts
-    const seaLevel = -0.05 + vis.sea * 0.45;
+    // Water fills the basins from the deepest point up: dry at 0, about 55% ocean at full, leaving land for Life.
+    const seaLevel = this.seaLevelFor(vis.sea * 0.55);
     const cloudCut = 1 - vis.clouds * 0.55;
     const dustC = { lon: 0.6, lat: 0.12 };
     for (let y = 0; y < RES; y++) {
