@@ -57,6 +57,7 @@
     </div>
 
     <section class="pane" id="paneTasks">
+      <div id="firstSteps" class="fs" hidden></div>
       <div id="daySummary" class="day-summary"></div>
       <div id="catFilter" class="filter-chips" role="group" aria-label="Filter by category"></div>
       <ul id="taskList" class="task-list"></ul>
@@ -222,8 +223,25 @@
       <div id="themeGrid" class="theme-grid" role="radiogroup" aria-label="Theme"></div>
       <p class="hint">Changes the colors of the whole app on this device. Your planet keeps its own colors.</p>
     </section>
+    <section class="stat-section reminders">
+      <div class="label">REMINDERS</div>
+      <div class="perm"><button type="button" class="btn-sm" id="notifyAllow">ALLOW NOTIFICATIONS</button><span class="hint" id="notifyStatus"></span></div>
+      <div id="remList" class="rem-list">
+        <label class="tog"><input type="checkbox" id="remDaily"><span><span class="tt">Daily tasks</span><span class="ts">At <input type="time" id="remDailyTime" value="20:00" aria-label="Time for the daily reminder"> if any are left</span></span></label>
+        <label class="tog"><input type="checkbox" id="remBlight"><span><span class="tt">Blight warnings</span><span class="ts">In the evening if one would spawn overnight, and when one starts draining</span></span></label>
+        <label class="tog"><input type="checkbox" id="remGoals"><span><span class="tt">Goal deadlines</span><span class="ts"><input type="number" id="remGoalDays" min="1" max="10" value="3" inputmode="numeric" aria-label="Days before the month ends"> days before the month ends, if unfinished</span></span></label>
+        <label class="tog"><input type="checkbox" id="remFocus"><span><span class="tt">Focus rounds</span><span class="ts">When a round or break ends while you're in another tab or app</span></span></label>
+      </div>
+      <p class="hint">Reminders fire while Planet Growth is open, even in a background tab. If it was closed, anything that came due shows when you're back.</p>
+    </section>
+    <section class="stat-section">
+      <div class="label">FIRST STEPS</div>
+      <p class="hint">A six-step tour of how the game works.</p>
+      <div class="dlg-actions" style="justify-content:flex-start"><button type="button" class="btn-ghost" id="tutReplay">START FIRST STEPS</button></div>
+    </section>
     <section class="stat-section save-data">
-      <div class="label">SAVE DATA · STORED ON THIS DEVICE</div>
+      <div class="label">SAVE DATA · MOVE YOUR WORLD BETWEEN DEVICES</div>
+      <p class="hint">Your world is stored on this device. Export it on one device and Import it on another. Importing the same world merges: work done on either device is kept.</p>
       <div class="dlg-actions">
         <button type="button" class="btn-ghost" id="exportBtn">EXPORT</button>
         <button type="button" class="btn-ghost" id="importBtn">IMPORT</button>
@@ -323,6 +341,17 @@
     </div>
   </form>
 </dialog>
+
+<dialog id="tutDlg" class="dlg">
+  <form method="dialog" id="tutForm"></form>
+</dialog>
+
+<div id="coachRing" class="coach-ring" hidden></div>
+<div id="coach" class="coach" hidden role="status" aria-live="polite">
+  <span class="k" id="coachK"></span>
+  <p id="coachText"></p>
+  <div class="acts" id="coachActs"></div>
+</div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button type="button" class="toast-act" hidden></button></div>
 

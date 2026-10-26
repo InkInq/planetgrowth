@@ -63,7 +63,6 @@ export function dayKey(t) {
 export function uid() { return Math.random().toString(36).slice(2, 10); }
 
 export function newState(now) {
-  const mk = (name, cat, type) => ({ id: uid(), name, cat, type, recurring: true, created: now });
   return {
     v: 1,
     name: 'Unnamed World',
@@ -76,13 +75,8 @@ export function newState(now) {
     stab: {},
     blights: {},
     milestones: {},
-    tasks: [
-      mk('Morning stretch', 'PHYS', 'steady'),
-      mk('Deep work block', 'MIND', 'surge'),
-      mk('Clear inbox', 'MIND', 'steady'),
-      mk('Walk outside', 'PHYS', 'stabilizer'),
-      mk('Message a friend', 'LIFE', 'steady'),
-    ],
+    tasks: [], // a new world starts with First Steps (see ui/tutorial.js), not sample tasks
+    tutorial: { welcome: true },
     goals: [],
     focus: null, // the running focus session, if any
     focusLog: [], // finished focus rounds: {t (end), mins, goalId}
@@ -249,6 +243,24 @@ export function completeTask(state, task, now, events) {
       h.blight.cleared = ev.id;
       state.events.push(ev);
       events.push(ev);
+    }
+  }
+}
+
+// Adds a task's effect on the planet for a completion made on another device (see merge.js).
+// Close to what completeTask did there: Steady boosts are faded by the days since, expired surges are skipped.
+export function replayEffect(state, task, t, now) {
+  const sys = CATS[task.cat].sys;
+  if (task.type === 'steady') state.gen[sys] += STEADY_GAIN * Math.exp(-DRIFT_PER_DAY * Math.max(0, now - t) / DAY);
+  if (task.type === 'surge' && t + SURGE_HOURS * HOUR > now) state.surges.push({ id: uid(), sys, mult: SURGE_MULT, until: t + SURGE_HOURS * HOUR, name: task.name });
+  if (task.type === 'catalyst') state.res[sys] += CATALYST_GAIN;
+  if (task.type === 'stabilizer') state.stab[sys] = Math.max(state.stab[sys] || 0, t + DAY);
+  const b = state.blights[sys];
+  if (b && t >= b.since) {
+    b.need -= 1;
+    if (b.need <= 0) {
+      delete state.blights[sys];
+      for (const e of state.events) if (e.kind === 'blight' && e.sys === sys) e.active = false;
     }
   }
 }
