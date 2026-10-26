@@ -245,6 +245,63 @@ button { cursor: pointer; }
 .fchip[aria-pressed="true"] { border-color: var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 14%, transparent); }
 .fchip[aria-pressed="true"] .n { color: var(--c); }
 
+/* Settings: reminders */
+.perm { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.perm .hint { flex: 1 1 200px; }
+.rem-list { display: flex; flex-direction: column; }
+.rem-list.off { opacity: 0.55; }
+.dlg label.tog { flex-direction: row; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 2px solid var(--line); color: var(--text); }
+.dlg label.tog > input { flex: none; width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--accent); }
+.tog .tt { display: block; font-size: 20px; line-height: 1; }
+.tog .ts { display: block; font-size: 17px; color: var(--muted); line-height: 1.2; margin-top: 3px; }
+.dlg label.tog .ts input { display: inline-block; width: auto; min-height: 0; padding: 0 4px; margin: 0 2px; font-size: 17px; }
+.dlg label.tog .ts input[type="number"] { width: 3.2em; }
+
+/* First Steps: the guided first tasks above the task list */
+.fs { display: flex; flex-direction: column; gap: 8px; }
+.fs-head { display: flex; align-items: center; gap: 8px; color: var(--gold); }
+.fs-head .label { color: var(--gold); }
+.fs-head .n { margin-left: auto; font-family: var(--pixel); font-size: 11px; }
+.fs-skip { background: none; border: 0; padding: 4px 2px; font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+.fs-skip:hover { color: var(--text); }
+.fs-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.fs-bar span { height: 6px; background: var(--line); }
+.fs-bar span.on { background: var(--gold); }
+.fs .task-list { gap: 8px; }
+.fs .task.fs-now { border-color: var(--gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 35%, transparent), 4px 4px 0 var(--shadow); }
+.fs-step .name { color: var(--text); }
+.chip.tut { --chip: var(--gold); }
+.how { display: block; font-size: 17px; color: var(--muted); line-height: 1.05; }
+.go { flex: none; min-height: 36px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; padding: 8px 12px; background: var(--gold); color: var(--bg); border: 0; box-shadow: 3px 3px 0 var(--shadow); }
+.go:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.more { font-size: 17px; color: var(--muted); padding-left: 4px; }
+.fs-offer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 2px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--card)); }
+.fs-offer-t { flex: 1 1 200px; display: flex; gap: 10px; align-items: flex-start; color: var(--gold); }
+.fs-offer-t b { font-family: var(--pixel); font-size: 11px; font-weight: 400; letter-spacing: 1px; }
+.fs-offer-acts { display: flex; gap: 8px; margin-left: auto; }
+
+/* coach bubble: a note pointing at one thing, everything else dimmed (clicks still go through) */
+.coach-ring { position: fixed; z-index: 8; pointer-events: none; outline: 3px solid var(--gold); box-shadow: 0 0 0 200vmax rgba(5, 3, 12, 0.55); }
+.coach {
+  position: fixed; z-index: 9; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+  background: var(--hud); border: 2px solid var(--gold); box-shadow: inset 2px 2px 0 var(--hud-hi), 6px 6px 0 var(--shadow);
+}
+.coach .k { font-family: var(--pixel); font-size: 10px; color: var(--gold); letter-spacing: 1px; }
+.coach p { margin: 0; font-size: 19px; line-height: 1.1; }
+.coach .acts { display: flex; gap: 8px; justify-content: flex-end; }
+.coach .acts button { font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; padding: 8px 12px; min-height: 36px; }
+.coach.up::after, .coach.down::after { content: ''; position: absolute; left: var(--ax, 24px); width: 12px; height: 12px; background: var(--hud); border: 2px solid var(--gold); transform: rotate(45deg); }
+.coach.up::after { top: -8px; border-right: 0; border-bottom: 0; }
+.coach.down::after { bottom: -8px; border-left: 0; border-top: 0; }
+.inline-coach { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 2px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); }
+.inline-coach .k { font-family: var(--pixel); font-size: 9px; color: var(--gold); letter-spacing: 1px; }
+.inline-coach p { margin: 0; font-size: 17px; line-height: 1.1; color: var(--text); }
+.tut-p { margin: 0; font-size: 20px; }
+.tut-done { color: var(--gold); display: flex; align-items: center; gap: 8px; }
+.learned { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.learned li { display: flex; gap: 8px; align-items: flex-start; font-size: 19px; line-height: 1.05; }
+.learned li .px { flex: none; color: var(--good); margin-top: 2px; }
+
 /* Task cards */
 .task-list, .goal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .task-list { gap: 8px; }

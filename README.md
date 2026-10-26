@@ -18,6 +18,10 @@ Open it on your phone over the same network, or deploy it to GitHub Pages (Setti
 
 ## How it plays
 
+**First Steps**
+
+A new world opens with a welcome card and six First Steps: wake the crust, make a daily task, set a goal, link a task to it, visit the World panel, and check Settings. Each one is done by actually doing it, with a short note on what it changed. Finishing pays +20 to every system and leaves a landmark. Older worlds get a one-time offer above the task list; Settings can start or replay it.
+
 **Task categories feed planetary systems**
 
 | Category | System | What you see |
@@ -67,6 +71,14 @@ A Calendar tab in the left column works like Google Calendar's phone app:
 
 On touch screens, tap to create or edit; dragging scrolls the grid.
 
+**Reminders**
+
+Settings → Reminders turns each kind on or off: daily tasks (at a time you pick, if any are left), blight warnings (in the evening if one would spawn overnight, and when one starts draining), goal deadlines (a set number of days before the month ends) and focus rounds. Nothing is sent until notifications are allowed. As a web app, reminders fire only while Planet Growth is open (a background tab is fine); anything that came due while it was closed shows when you're back.
+
+**Playing on two devices**
+
+Saves stay on the device. Export the world on one device and Import it on the other. The first time, Import replaces the new device's empty world; after that both copies are the same world, and Import offers to merge: tasks, goals, calendar events, history and focus rounds from both are kept, deletions stick, goal progress adds up, and check-offs made only on the other device still count toward the planet. No account or server is involved.
+
 **Panels**
 
 - Both side panels collapse with the arrow button in their header (or `[` and `]`). A collapsed panel leaves a slim tab at the screen edge to bring it back, and the globe grows into the space. The choice is remembered. On phones, tap the bar at the top of a sheet to close it.
@@ -85,19 +97,19 @@ A forecast under the globe estimates when the next milestone lands at your curre
 ## Files
 
 - `js/sim.js`: simulation (rates, generators, blights, milestones, stats). Pure logic, no DOM.
+- `js/merge.js`: merging two saves of the same world (Import in Settings). Pure logic, no DOM.
 - `js/globe.js`: pixel globe renderer (a 112 px buffer scaled up crisply).
-- `js/main.js`: UI, input, save/load, game loop.
+- `js/main.js`: starts the app and runs the game loop.
+- `js/ui/`: the interface, one file per part of the screen: `tasks`, `goals`, `calendar`, `focus`, `systems` (header and World panel), `history`, `stats`, `settings`, `themes`, `world` (globe and its markers), `layout` (dialogs, phone tabs, side panels), `tutorial` (First Steps), `reminders`, plus `store` (the save), `render` (redraw everything), `feedback` (toasts), `keywords` and `util`.
 - `js/icons.js`: 8×8 pixel icons drawn as inline SVG.
 - `sw.js`, `manifest.webmanifest`, `icons/`: PWA install and offline support.
 
 Tuning numbers live at the top of `js/sim.js` and in `MILESTONES`.
 
-For testing in the browser console: `__pg.fastForward(24)` advances the world by 24 hours.
+For testing in the browser console: `__pg.fastForward(24)` advances the world by 24 hours. On `localhost` the offline cache is skipped, so edits show on reload.
 
 ## Roadmap ideas
 
 - Rhythm detection: suggest scheduling tasks you reliably do on certain weekdays
-- Reminder notifications (push) for daily tasks and active blights
 - Era II and beyond: civilization, orbit, moons
 - Task-mix shaping the planet's look (volcanic vs ocean worlds)
-- Optional sync across devices

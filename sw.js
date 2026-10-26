@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, serve cache-first, refresh in the background.
-const CACHE = 'planetgrowth-v12';
+const CACHE = 'planetgrowth-v16';
 const SHELL = [
   './',
   './index.html',
@@ -9,6 +9,25 @@ const SHELL = [
   './js/sim.js',
   './js/globe.js',
   './js/icons.js',
+  './js/merge.js',
+  './js/ui/util.js',
+  './js/ui/store.js',
+  './js/ui/feedback.js',
+  './js/ui/world.js',
+  './js/ui/themes.js',
+  './js/ui/tasks.js',
+  './js/ui/goals.js',
+  './js/ui/systems.js',
+  './js/ui/stats.js',
+  './js/ui/history.js',
+  './js/ui/calendar.js',
+  './js/ui/focus.js',
+  './js/ui/settings.js',
+  './js/ui/layout.js',
+  './js/ui/render.js',
+  './js/ui/keywords.js',
+  './js/ui/tutorial.js',
+  './js/ui/reminders.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
@@ -38,4 +57,13 @@ self.addEventListener('fetch', (e) => {
       return hit || net;
     })
   );
+});
+
+// Tapping a reminder brings the app to the front, or opens it.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const open = list.find((c) => 'focus' in c);
+    return open ? open.focus() : self.clients.openWindow('./');
+  }));
 });
