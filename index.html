@@ -46,10 +46,14 @@
 
 <div class="layout">
   <aside class="panel left" id="tasksPanel" aria-label="Tasks and goals">
+    <button type="button" class="sheet-handle" data-sheet-close aria-label="Close panel"></button>
+    <div class="panel-head">
     <div class="tabs" role="tablist">
       <button role="tab" type="button" id="tabDaily" class="tab" aria-selected="true" data-tab="tasks">DAILY</button>
       <button role="tab" type="button" id="tabGoals" class="tab" aria-selected="false" data-tab="goals">GOALS <span id="goalCount">0/3</span></button>
       <button role="tab" type="button" id="tabCal" class="tab" aria-selected="false" data-tab="calendar">CALENDAR</button>
+    </div>
+    <button type="button" class="panel-toggle" data-collapse="left" aria-label="Hide this panel" title="Hide panel ( [ )"><span data-icon="left"></span></button>
     </div>
 
     <section class="pane" id="paneTasks">
@@ -86,6 +90,8 @@
   </aside>
 
   <main class="stage">
+    <button type="button" class="rail rail-left" data-collapse="left" aria-label="Show tasks panel" title="Show panel ( [ )"><span data-icon="right"></span><span class="rail-t">TASKS</span></button>
+    <button type="button" class="rail rail-right" data-collapse="right" aria-label="Show world panel" title="Show panel ( ] )"><span data-icon="left"></span><span class="rail-t">WORLD</span></button>
     <div class="globe-wrap" id="globeWrap">
       <canvas id="globe" role="img" aria-label="Your planet"></canvas>
       <div id="nodes" class="nodes"></div>
@@ -97,12 +103,28 @@
     </div>
   </main>
 
-  <aside class="panel right" id="systemsPanel" aria-label="Planet systems">
-    <div id="worldSummary" class="world-summary"></div>
-    <div class="label">SYSTEMS</div>
-    <div id="systems" class="systems"></div>
-    <div class="label">MILESTONES</div>
-    <ol id="road" class="road"></ol>
+  <aside class="panel right" id="systemsPanel" aria-label="World">
+    <button type="button" class="sheet-handle" data-sheet-close aria-label="Close panel"></button>
+    <div class="panel-head">
+      <button type="button" class="panel-toggle" data-collapse="right" aria-label="Hide this panel" title="Hide panel ( ] )"><span data-icon="right"></span></button>
+      <div class="tabs" role="tablist">
+        <button role="tab" type="button" id="tabSystems" class="tab" aria-selected="true" data-rtab="systems">SYSTEMS</button>
+        <button role="tab" type="button" id="tabHistory" class="tab" aria-selected="false" data-rtab="history">HISTORY</button>
+      </div>
+    </div>
+    <section class="pane" id="paneSystems">
+      <div id="worldSummary" class="world-summary"></div>
+      <div class="label">SYSTEMS</div>
+      <div id="systems" class="systems"></div>
+      <div class="label">MILESTONES</div>
+      <ol id="road" class="road"></ol>
+    </section>
+    <section class="pane" id="paneHistory" hidden>
+      <div id="histSummary" class="hist-summary"></div>
+      <div id="histFilter" class="filter-chips hist-filter" role="group" aria-label="Filter history"></div>
+      <ol id="histList" class="hist-list"></ol>
+      <button type="button" class="btn-dashed" id="histMore" hidden>SHOW OLDER</button>
+    </section>
   </aside>
 </div>
 

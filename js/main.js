@@ -249,6 +249,7 @@ function catOfSys(sys) { return Object.keys(CATS).find((c) => CATS[c].sys === sy
 
 function jumpToTask(text) {
   const name = text.replace(/ ×\d+$/, '');
+  togglePanel('left', true);
   catFilter = 'ALL';
   renderTasks();
   setView('tasks');
@@ -685,6 +686,7 @@ function renderAll() {
   renderGoals();
   renderSystems();
   renderCalendar();
+  renderHistory();
   syncNodes();
 }
 
@@ -1793,11 +1795,153 @@ function syncFab() {
   fab.setAttribute('aria-label', goals ? 'New goal' : view === 'calendar' ? 'New event' : 'New task');
   fab.hidden = goals && !canAddGoal();
 }
-document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setView(b.dataset.tab)));
+document.querySelectorAll('.tab[data-tab]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.tab)));
 document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.addEventListener('click', () => {
   // tapping the active tab collapses the sheet to show the whole globe
   setView(document.body.dataset.view === b.dataset.view ? 'none' : b.dataset.view);
 }));
+
+// ---------- panels: collapsible on desktop; right panel tabs (Systems / History) ----------
+const PANELS_KEY = 'planetgrowth-panels';
+const collapsed = (() => {
+  try { return { left: false, right: false, ...JSON.parse(localStorage.getItem(PANELS_KEY) || '{}') }; } catch (e) { return { left: false, right: false }; }
+})();
+function applyPanels() {
+  $('.layout').classList.toggle('left-collapsed', !!collapsed.left);
+  $('.layout').classList.toggle('right-collapsed', !!collapsed.right);
+  $('.rail-left').hidden = !collapsed.left;
+  $('.rail-right').hidden = !collapsed.right;
+  try { localStorage.setItem(PANELS_KEY, JSON.stringify(collapsed)); } catch (e) { /* storage unavailable */ }
+}
+function togglePanel(side, open) {
+  collapsed[side] = open === undefined ? !collapsed[side] : !open;
+  applyPanels();
+  if (side === 'right' && !collapsed.right) renderHistory();
+}
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-collapse]');
+  if (c) { togglePanel(c.dataset.collapse); return; }
+  if (e.target.closest('[data-sheet-close]')) setView('none'); // phone: the grab bar closes the sheet
+});
+// [ and ] toggle the panels on desktop
+document.addEventListener('keydown', (e) => {
+  if ((e.key !== '[' && e.key !== ']') || e.metaKey || e.ctrlKey || e.altKey || !matchMedia('(min-width: 861px)').matches) return;
+  if (document.querySelector('dialog[open]') || e.target.closest('input, textarea, select')) return;
+  togglePanel(e.key === '[' ? 'left' : 'right');
+  e.preventDefault();
+});
+applyPanels();
+new ResizeObserver(() => sizeCanvas()).observe(canvas); // the globe grows into the space a collapsed panel frees
+
+let rightTab = 'systems';
+function setRightTab(tab) {
+  rightTab = tab;
+  $('#paneSystems').hidden = tab !== 'systems';
+  $('#paneHistory').hidden = tab !== 'history';
+  $('#tabSystems').setAttribute('aria-selected', String(tab === 'systems'));
+  $('#tabHistory').setAttribute('aria-selected', String(tab === 'history'));
+  if (tab === 'history') renderHistory();
+}
+document.querySelectorAll('[data-rtab]').forEach((b) => b.addEventListener('click', () => setRightTab(b.dataset.rtab)));
+
+// History: everything that happened, newest first, grouped by day.
+const HIST_FILTERS = { all: 'ALL', task: 'TASKS', goal: 'GOALS', planet: 'PLANET', focus: 'FOCUS' };
+let histFilter = 'all';
+let histDays = 14;
+
+function historyItems() {
+  const out = [];
+  const taskById = new Map(state.tasks.map((t) => [t.id, t]));
+  const goalById = new Map(state.goals.map((g) => [g.id, g]));
+  for (const h of state.history) {
+    const t = taskById.get(h.taskId), g = h.goal && goalById.get(h.goal);
+    out.push({ t: h.t, kind: 'task', ico: 'check', c: CATS[h.cat].color, title: h.name,
+      detail: (t ? rewardText(h.cat, t.type) : CATS[h.cat].label) + (g ? ` · +${fmtNum(h.goalAmt)} ${g.unit} to ${g.name}` : ''), task: h.name });
+  }
+  for (const e of state.events) {
+    out.push({ t: e.t, kind: e.kind === 'goal' ? 'goal' : 'planet', ico: EVENT_ICON[e.kind] || 'star', c: KIND[e.kind].color, title: e.title, detail: e.body || '', event: e.id });
+  }
+  const focusKeys = new Set((state.focusLog || []).map((f) => f.goalId + '|' + f.t));
+  for (const g of state.goals) {
+    const c = CATS[g.cat].color;
+    out.push({ t: g.created, kind: 'goal', ico: 'flag', c, title: 'Goal set', detail: `${g.name} · ${fmtNum(g.target)} ${g.unit} by the end of ${monthName(goalMonth(g))}`, goal: g.id });
+    for (const l of g.log || []) {
+      if (l.task || !(l.amt > 0) || focusKeys.has(g.id + '|' + l.t)) continue; // tasks and focus rounds are listed on their own
+      out.push({ t: l.t, kind: 'goal', ico: 'plus', c, title: `Logged +${fmtNum(l.amt)} ${g.unit}`, detail: g.name, goal: g.id });
+    }
+    if (g.missed) out.push({ t: g.missed, kind: 'goal', ico: 'close', c: 'var(--danger)', title: 'Goal missed', detail: `${g.name} · ${fmtNum(g.current)}/${fmtNum(g.target)} ${g.unit} · reward lost`, goal: g.id });
+  }
+  for (const f of state.focusLog || []) {
+    const g = f.goalId && goalById.get(f.goalId);
+    const amt = g ? focusAmount(g.unit, f.mins) : 0;
+    out.push({ t: f.t, kind: 'focus', ico: 'clock', c: g ? CATS[g.cat].color : 'var(--accent)', title: `Focus · ${f.mins} min`,
+      detail: g ? (amt > 0 ? `+${fmtNum(amt)} ${g.unit} to ${g.name}` : `A day worked on ${g.name}`) : 'No goal tagged', goal: g ? g.id : null });
+  }
+  return out.sort((a, b) => b.t - a.t);
+}
+
+function renderHistory() {
+  if (rightTab !== 'history') return;
+  const now = Date.now();
+  const all = historyItems();
+  const since = startOfDay(now - (histDays - 1) * DAY).getTime();
+  const inRange = all.filter((i) => i.t >= since);
+  const items = inRange.filter((i) => histFilter === 'all' || i.kind === histFilter);
+  const n = (k) => inRange.filter((i) => i.kind === k).length;
+  const focusMins = (state.focusLog || []).filter((f) => f.t >= since).reduce((s, f) => s + f.mins, 0);
+  $('#histSummary').innerHTML = `<div class="day-head"><span class="label">LAST ${histDays} DAYS</span></div>
+    <div class="hist-stats">
+      <span style="--c:var(--good)"><b>${n('task')}</b>tasks</span>
+      <span style="--c:var(--gold)"><b>${inRange.filter((i) => i.kind === 'planet' && /milestone|cleared/.test(KIND_OF(i))).length}</b>world events</span>
+      <span style="--c:var(--accent)"><b>${focusMins ? fmtMins(focusMins) : 0}</b>focus</span>
+    </div>`;
+  $('#histFilter').innerHTML = Object.entries(HIST_FILTERS).map(([k, label]) => `<button type="button" class="fchip" data-hfilter="${k}" aria-pressed="${histFilter === k}">${label}<span class="n">${k === 'all' ? inRange.length : n(k)}</span></button>`).join('');
+  const today = dayKey(now), yesterday = dayKey(now - DAY);
+  let html = '', day = '';
+  for (const i of items) {
+    const k = dayKey(i.t);
+    if (k !== day) {
+      day = k;
+      const dayItems = items.filter((x) => dayKey(x.t) === k);
+      const tasksDone = dayItems.filter((x) => x.kind === 'task').length;
+      const label = k === today ? 'TODAY' : k === yesterday ? 'YESTERDAY' : new Date(i.t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+      html += `<li class="hd"><span class="label">${label}</span><span class="hd-sum">${tasksDone ? tasksDone + ' task' + (tasksDone === 1 ? '' : 's') : ''}</span></li>`;
+    }
+    const act = i.event ? `data-hevent="${i.event}"` : i.task ? `data-htask="${esc(i.task)}"` : i.goal ? `data-hgoal="${i.goal}"` : '';
+    html += `<li><button type="button" class="hi hi-${i.kind}" ${act} style="--c:${i.c}">
+      <span class="hi-ico">${icon(i.ico)}</span>
+      <span class="hi-body"><span class="hi-t">${esc(i.title)}</span>${i.detail ? `<span class="hist-d">${esc(i.detail)}</span>` : ''}</span>
+      <span class="hi-time">${fmtTime(i.t)}</span></button></li>`;
+  }
+  $('#histList').innerHTML = html || `<li class="empty">Nothing ${histFilter === 'all' ? '' : 'of this kind '}in the last ${histDays} days.</li>`;
+  $('#histMore').hidden = !all.some((i) => i.t < since);
+}
+const KIND_OF = (i) => (state.events.find((e) => e.id === i.event) || {}).kind || '';
+
+$('#histFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-hfilter]');
+  if (b) { histFilter = b.dataset.hfilter; renderHistory(); }
+});
+$('#histMore').addEventListener('click', () => { histDays += 14; renderHistory(); });
+$('#histList').addEventListener('click', (e) => {
+  const b = e.target.closest('.hi');
+  if (!b) return;
+  if (b.dataset.htask) { jumpToTask(b.dataset.htask); return; }
+  if (b.dataset.hgoal) {
+    const g = state.goals.find((x) => x.id === b.dataset.hgoal);
+    if (g && !g.done && !g.missed) openGoalDlg(g);
+    else { togglePanel('left', true); setView('goals'); }
+    return;
+  }
+  if (b.dataset.hevent) { // turn the globe to face the event, then open its marker if it has one
+    const ev = state.events.find((x) => x.id === b.dataset.hevent);
+    if (!ev) return;
+    globe.rot = ev.lon;
+    autoSpin = false; spinResume = performance.now() + 6000;
+    if (matchMedia('(max-width: 860px)').matches) setView('none'); // phone: show the globe
+    setTimeout(() => { if (nodeEls.has(ev.id)) openTip(ev.id); }, 80);
+  }
+});
 
 // ---------- game words: bold and colored ----------
 // Words that affect the game are wrapped in <b class="kw kw-…"> wherever descriptive text appears.
@@ -1815,7 +1959,7 @@ const KW_RULES = [
 ];
 const KW_RE = new RegExp(KW_RULES.map(([, r]) => `(${r.source})`).join('|'), 'g');
 // where it applies: descriptive text, not chips, buttons, headings or names
-const KW_SCOPE = '.hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .tl-d, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
+const KW_SCOPE = '.hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .tl-d, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
 
 const typedNames = () => [state.name, ...state.tasks.map((t) => t.name), ...state.goals.map((g) => g.name), ...state.cal.map((e) => e.title)]
   .filter((n) => n && n.length > 1).sort((a, b) => b.length - a.length);

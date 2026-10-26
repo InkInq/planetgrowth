@@ -67,6 +67,11 @@ A Calendar tab in the left column works like Google Calendar's phone app:
 
 On touch screens, tap to create or edit; dragging scrolls the grid.
 
+**Panels**
+
+- Both side panels collapse with the arrow button in their header (or `[` and `]`). A collapsed panel leaves a slim tab at the screen edge to bring it back, and the globe grows into the space. The choice is remembered. On phones, tap the bar at the top of a sheet to close it.
+- The right panel has two tabs: **Systems** (planet systems and milestones) and **History**, a day-by-day timeline of tasks done, goal progress, focus rounds and planet events, with filters. Tapping a planet event turns the globe to it; a task jumps to it in the list; a goal opens it.
+
 **Events on the globe**
 
 Milestones, goals, blights and recoveries appear as nodes on the planet. Tap one to see when it happened and which tasks caused it or can fix it.
