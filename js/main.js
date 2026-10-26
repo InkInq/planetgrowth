@@ -2,7 +2,7 @@ import {
   CATS, SYSTEMS, TYPES, MILESTONES, BLIGHTS, DAY, HOUR,
   newState, advance, rates, completeTask, uncompleteTask, isDoneToday, goalProgress,
   nextMilestone, milestoneProgress, forecast, visuals, eraOf, stats, uid, dayKey, fmtDuration,
-  focusAmount, goalFocus, GOALS_PER_MONTH, GOAL_REWARD, goalReward, goalStarted, monthKey, monthAfter, monthLastDay, monthStart, goalMonth, goalsInMonth, openGoals, expireGoals,
+  focusAmount, goalFocus, reopenGoal, GOALS_PER_MONTH, GOAL_REWARD, goalReward, goalStarted, monthKey, monthAfter, monthLastDay, monthStart, goalMonth, goalsInMonth, openGoals, expireGoals,
 } from './sim.js';
 import { Globe } from './globe.js';
 import { icon } from './icons.js';
@@ -740,13 +740,20 @@ function logGoal(btn) {
   if (amt <= 0) { toast('Enter an amount to log'); return; }
   floatReward(btn, '+' + fmtNum(amt) + ' ' + g.unit, CATS[g.cat].color);
   const before = goalReward(g).res;
-  goalProgress(state, g, amt, Date.now(), pending);
-  if (!g.done) {
+  const met = goalProgress(state, g, amt, Date.now(), pending);
+  const undo = () => {
+    if (met && g.done) reopenGoal(state, g);
+    goalProgress(state, g, -amt, Date.now(), []);
+    save(); renderAll();
+  };
+  if (met) {
+    // our own toast (with undo) stands in for the usual "goal complete" one
+    const i = pending.findIndex((e) => e.kind === 'goal');
+    if (i >= 0) pending.splice(i, 1);
+    toast(`★ ${g.name} complete · +${g.paid.res} ${sysShort(g.cat)}`, { label: 'UNDO', run: undo });
+  } else {
     const after = goalReward(g).res;
-    toast(`Logged ${fmtNum(amt)} ${g.unit}` + (after > before ? ` · reward grew to +${after}` : ` · ${g.name}`), {
-      label: 'UNDO',
-      run: () => { if (!g.done) { goalProgress(state, g, -amt, Date.now(), []); save(); renderAll(); } },
-    });
+    toast(`Logged ${fmtNum(amt)} ${g.unit}` + (after > before ? ` · reward grew to +${after}` : ` · ${g.name}`), { label: 'UNDO', run: undo });
   }
   save(); announce(pending); renderAll();
 }

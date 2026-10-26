@@ -215,6 +215,7 @@ export function isDoneToday(state, task, now) {
   return state.history.some((h) => h.taskId === task.id && dayKey(h.t) === k);
 }
 
+// Each history entry records what its completion changed, so unchecking can reverse exactly that.
 export function completeTask(state, task, now, events) {
   const sys = CATS[task.cat].sys;
   const h = { taskId: task.id, name: task.name, cat: task.cat, t: now };
@@ -224,19 +225,28 @@ export function completeTask(state, task, now, events) {
   if (goalOpen(goal) && goalStarted(goal, now)) {
     h.goal = goal.id;
     h.goalAmt = task.goalAmt || 1;
-    goalProgress(state, goal, h.goalAmt, now, events, task.id);
+    h.goalMet = goalProgress(state, goal, h.goalAmt, now, events, task.id);
   }
   if (task.type === 'steady') state.gen[sys] += STEADY_GAIN;
-  if (task.type === 'surge') state.surges.push({ sys, mult: SURGE_MULT, until: now + SURGE_HOURS * HOUR, name: task.name });
+  if (task.type === 'surge') {
+    h.surge = uid();
+    state.surges.push({ id: h.surge, sys, mult: SURGE_MULT, until: now + SURGE_HOURS * HOUR, name: task.name });
+  }
   if (task.type === 'catalyst') state.res[sys] += CATALYST_GAIN;
-  if (task.type === 'stabilizer') state.stab[sys] = now + DAY;
+  if (task.type === 'stabilizer') {
+    h.stab = { prev: state.stab[sys] ?? null, set: now + DAY };
+    state.stab[sys] = h.stab.set;
+  }
   const b = state.blights[sys];
   if (b) {
+    h.blight = { since: b.since, need: b.need };
     b.need -= 1;
     if (b.need <= 0) {
       delete state.blights[sys];
-      for (const e of state.events) if (e.kind === 'blight' && e.sys === sys && e.active) e.active = false;
+      h.blight.closed = [];
+      for (const e of state.events) if (e.kind === 'blight' && e.sys === sys && e.active) { e.active = false; h.blight.closed.push(e.id); }
       const ev = { id: uid(), kind: 'cleared', title: BLIGHTS[sys].title + ' Cleared', body: 'Restored by ' + task.name + '.', t: now, lat: BLIGHTS[sys].lat, lon: BLIGHTS[sys].lon, links: [task.name] };
+      h.blight.cleared = ev.id;
       state.events.push(ev);
       events.push(ev);
     }
@@ -245,17 +255,34 @@ export function completeTask(state, task, now, events) {
 
 export function uncompleteTask(state, task, now) {
   const k = dayKey(now);
-  const i = state.history.findIndex((h) => h.taskId === task.id && dayKey(h.t) === k);
+  const i = state.history.findLastIndex((h) => h.taskId === task.id && dayKey(h.t) === k);
   if (i < 0) return;
   const [h] = state.history.splice(i, 1);
-  if (h.goal) goalProgress(state, state.goals.find((g) => g.id === h.goal), -h.goalAmt, now, [], task.id);
+  if (h.goal) {
+    const goal = state.goals.find((g) => g.id === h.goal);
+    if (goal && h.goalMet && goal.done) reopenGoal(state, goal);
+    goalProgress(state, goal, -h.goalAmt, now, [], task.id);
+  }
   const sys = CATS[task.cat].sys;
   if (task.type === 'steady') state.gen[sys] = Math.max(0, state.gen[sys] - STEADY_GAIN);
   if (task.type === 'surge') {
-    const j = state.surges.findIndex((s) => s.name === task.name && s.sys === sys);
+    // entries from older saves have no id: fall back to the newest surge by this task
+    const j = h.surge ? state.surges.findIndex((x) => x.id === h.surge) : state.surges.findLastIndex((x) => x.name === task.name && x.sys === sys);
     if (j >= 0) state.surges.splice(j, 1);
   }
   if (task.type === 'catalyst') state.res[sys] = Math.max(0, state.res[sys] - CATALYST_GAIN);
+  if (h.stab && state.stab[sys] === h.stab.set) { // only if nothing has replaced it since
+    if (h.stab.prev == null) delete state.stab[sys]; else state.stab[sys] = h.stab.prev;
+  }
+  if (h.blight) {
+    if (h.blight.cleared && !state.blights[sys]) {
+      state.blights[sys] = { since: h.blight.since, need: h.blight.need };
+      state.events = state.events.filter((e) => e.id !== h.blight.cleared);
+      for (const e of state.events) if (h.blight.closed.includes(e.id)) e.active = true;
+    } else if (state.blights[sys]) {
+      state.blights[sys].need = Math.min(state.blights[sys].need + 1, BLIGHT_CLEAR);
+    }
+  }
 }
 
 // A goal's reward grows: a base amount, plus more for every day you work on it.
@@ -287,8 +314,9 @@ export function goalFocus(state, goal, mins, t, events) {
 
 // amount > 0 records a contribution (from a log, or from the linked task taskId);
 // amount < 0 takes back today's matching contribution; 0 only re-checks the target.
+// Returns true when this call meets the goal.
 export function goalProgress(state, goal, amount, now, events, taskId = null) {
-  if (!goalOpen(goal)) return;
+  if (!goalOpen(goal)) return false;
   goal.log ||= [];
   if (amount > 0) goal.log.push(taskId ? { t: now, amt: amount, task: taskId } : { t: now, amt: amount });
   if (amount < 0) {
@@ -307,9 +335,23 @@ export function goalProgress(state, goal, amount, now, events, taskId = null) {
     state.res[sys] += r.res;
     state.gen[sys] += r.gen;
     const ev = { id: uid(), kind: 'goal', title: 'Goal: ' + goal.name, body: `A landmark achievement reshapes the world. +${r.res} ${SYSTEMS[sys].label}, +${r.gen}/h for good.`, t: now, lat: (Math.random() - 0.5) * 1.4, lon: Math.random() * Math.PI * 2, links: [goal.current + ' / ' + goal.target + ' ' + goal.unit, r.days + ' day' + (r.days === 1 ? '' : 's') + ' of work'] };
+    goal.doneEvent = ev.id;
     state.events.push(ev);
     events.push(ev);
+    return true;
   }
+  return false;
+}
+
+// Undo a goal's completion: take back its reward and its landmark.
+export function reopenGoal(state, goal) {
+  if (!goal || !goal.done) return;
+  const sys = CATS[goal.cat].sys;
+  const r = goal.paid || goalReward(goal);
+  state.res[sys] = Math.max(0, state.res[sys] - r.res);
+  state.gen[sys] = Math.max(0, state.gen[sys] - r.gen);
+  if (goal.doneEvent) state.events = state.events.filter((e) => e.id !== goal.doneEvent);
+  delete goal.done; delete goal.paid; delete goal.doneEvent;
 }
 
 export function nextMilestone(state) {
