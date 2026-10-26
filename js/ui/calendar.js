@@ -178,8 +178,12 @@ function calTitleText(range) {
   return a.getMonth() === b.getMonth() ? `${f(a, { month: 'short' })} ${a.getDate()}–${b.getDate()}` : `${f(a, { month: 'short', day: 'numeric' })} – ${f(b, { month: 'short', day: 'numeric' })}`;
 }
 
+// Whether the calendar is on screen. On desktop it can show while another view is current
+// (say, after the window was phone-width), so this looks at the pane itself.
+const calendarShown = () => { const p = $('#paneCalendar'); return !p.hidden && !!p.offsetParent; };
+
 export function renderCalendar() {
-  if (document.body.dataset.view !== 'calendar') return;
+  if (!calendarShown()) return;
   const range = calRange();
   const from = range.start.getTime(), to = addDays(range.start, range.days).getTime();
   const occ = occurrences(from, to);
@@ -495,7 +499,7 @@ $('#calDelete').addEventListener('click', async () => {
 
 // Google Calendar's shortcuts: T today, J/K or N/P next/previous, D X W M A views, C create.
 document.addEventListener('keydown', (e) => {
-  if (document.body.dataset.view !== 'calendar' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!calendarShown() || e.metaKey || e.ctrlKey || e.altKey) return;
   if (document.querySelector('dialog[open]') || e.target.closest('input, textarea, select')) return;
   const k = e.key.toLowerCase();
   const views = { d: 'day', x: '3day', w: 'week', m: 'month', a: 'list' };

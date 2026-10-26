@@ -386,11 +386,11 @@ button { cursor: pointer; }
 .step { width: 36px; height: 36px; flex: none; display: grid; place-items: center; background: none; border: 2px solid var(--line-2); color: var(--text); }
 .step:hover { border-color: var(--c); }
 .goal-log input {
-  width: 64px; min-height: 36px; padding: 2px 4px; text-align: center; font-size: 21px;
+  flex: 0 1 64px; width: 64px; min-width: 44px; min-height: 36px; /* gives way first in a narrow panel */ padding: 2px 4px; text-align: center; font-size: 21px;
   background: var(--bg); border: 2px solid var(--line-2); -moz-appearance: textfield; appearance: textfield;
 }
 .goal-log input::-webkit-inner-spin-button, .goal-log input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.btn-log { margin-left: auto; min-height: 36px; padding: 6px 16px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; background: var(--c); color: var(--bg); border: 0; box-shadow: 3px 3px 0 var(--shadow); }
+.btn-log { flex: none; margin-left: auto; min-height: 36px; padding: 6px 12px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; background: var(--c); color: var(--bg); border: 0; box-shadow: 3px 3px 0 var(--shadow); }
 .btn-log:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
 .achieved { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); color: var(--c); }
 .achieved .px { width: 16px; height: 16px; }
@@ -431,7 +431,7 @@ button { cursor: pointer; }
 .focus-dots span.now { border-color: var(--c); animation: blink 1s steps(2) infinite; }
 .focus-goal { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 18px; color: var(--muted); }
 .focus-goal > span { color: var(--c); }
-.focus-go { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.focus-go { flex: none; display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
 .focus-go + .btn-log { margin-left: 0; }
 .focus-go .px { color: var(--c); }
 .focus-bar { width: 120px; height: 10px; background: var(--line); }
