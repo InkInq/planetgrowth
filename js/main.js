@@ -581,8 +581,14 @@ function heatmap(perDay, now) {
       <span class="hm-legend">LESS${[0, 1, 2, 3, 4].map((l) => `<span class="hm l${l}"></span>`).join('')}MORE</span></div>`;
 }
 
+// Time ranges shared by Stats and History, so the same number means the same thing on both.
+const RANGE = { focus: 7, week: 7, tasks: 14 };
+const rangeStart = (days, now = Date.now()) => startOfDay(now - (days - 1) * DAY).getTime();
+const plural = (n, one, many = one + 's') => (n === 1 ? one : many);
+const isMilestoneEvent = (e) => e.kind === 'milestone' && MILESTONES.some((m) => m.title === e.title);
+
 function focusStats(now) {
-  const since = startOfDay(now - 6 * DAY).getTime();
+  const since = rangeStart(RANGE.focus, now);
   const rounds = (state.focusLog || []).filter((f) => f.t >= since);
   if (!rounds.length) return '';
   const total = rounds.reduce((n, f) => n + f.mins, 0);
@@ -614,8 +620,8 @@ function renderStats() {
 
   const tiles = [
     { ico: 'streak', c: 'var(--gold)', v: s.streak, k: 'DAY STREAK', sub: `Best ${best}` },
-    { ico: 'check', c: 'var(--accent)', v: state.history.length, k: 'TASKS DONE', sub: `${perDay.get(today) || 0} today` },
-    { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET', sub: `${goalsInMonth(state, monthKey(now)).length}/${GOALS_PER_MONTH} this month` },
+    { ico: 'check', c: 'var(--accent)', v: state.history.filter((h) => h.t >= rangeStart(RANGE.tasks, now)).length, k: `TASKS · ${RANGE.tasks} DAYS`, sub: `${state.history.length} all time` },
+    { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET · ALL TIME', sub: `${goalsInMonth(state, monthKey(now)).length}/${GOALS_PER_MONTH} set this month` },
     { ico: 'star', c: 'var(--gold)', v: `${msDone}/${MILESTONES.length}`, k: 'MILESTONES', sub: `Era ${eraOf(state).n}` },
   ];
 
@@ -653,7 +659,6 @@ function renderStats() {
       <span class="rel-pct">${Math.round(rel * 100)}%</span>
     </div>`).join('');
 
-  const evs = [...state.events].reverse().slice(0, 40);
   $('#statsBody').innerHTML = `
     <div class="stat-tiles">${tiles.map((x) => `
       <div class="stat-tile" style="--c:${x.c}"><span class="st-ico">${icon(x.ico)}</span>
@@ -671,12 +676,10 @@ function renderStats() {
       <div class="label">TASK RELIABILITY · LAST 14 DAYS</div>
       ${rows || '<div class="empty">No daily tasks yet.</div>'}
     </section>
-    <section class="stat-section">
-      <div class="label">WORLD HISTORY</div>
-      <ol class="timeline">${evs.map((e) => `
-        <li style="--c:${KIND[e.kind].color}"><span class="tl-ico">${icon(EVENT_ICON[e.kind])}</span>
-          <span class="tl-body"><span class="tl-t">${esc(e.title)}</span>${e.body ? `<span class="tl-d">${esc(e.body)}</span>` : ''}</span>
-          <span class="tl-date">${fmtDate(e.t)}</span></li>`).join('')}</ol>
+    <section class="stat-section see-history">
+      <div class="label">HISTORY</div>
+      <p class="hint">Every task, goal, focus round and planet event, day by day, lives in the History tab.</p>
+      <button type="button" class="btn-ghost" id="seeHistory">SEE FULL HISTORY ${icon('right')}</button>
     </section>`;
 }
 
@@ -1888,13 +1891,17 @@ function renderHistory() {
   const inRange = all.filter((i) => i.t >= since);
   const items = inRange.filter((i) => histFilter === 'all' || i.kind === histFilter);
   const n = (k) => inRange.filter((i) => i.kind === k).length;
-  const focusMins = (state.focusLog || []).filter((f) => f.t >= since).reduce((s, f) => s + f.mins, 0);
-  $('#histSummary').innerHTML = `<div class="day-head"><span class="label">LAST ${histDays} DAYS</span></div>
-    <div class="hist-stats">
-      <span style="--c:var(--good)"><b>${n('task')}</b>tasks</span>
-      <span style="--c:var(--gold)"><b>${inRange.filter((i) => i.kind === 'planet' && /milestone|cleared/.test(KIND_OF(i))).length}</b>world events</span>
-      <span style="--c:var(--accent)"><b>${focusMins ? fmtMins(focusMins) : 0}</b>focus</span>
-    </div>`;
+  const tasksN = state.history.filter((h) => h.t >= rangeStart(RANGE.tasks, now)).length;
+  const focusMins = (state.focusLog || []).filter((f) => f.t >= rangeStart(RANGE.focus, now)).reduce((sum, f) => sum + f.mins, 0);
+  const recent = state.events.filter((e) => e.t >= rangeStart(RANGE.tasks, now));
+  const msN = recent.filter(isMilestoneEvent).length, recN = recent.filter((e) => e.kind === 'cleared').length;
+  $('#histSummary').innerHTML = `<div class="hist-stats">
+      <span style="--c:var(--accent)"><b>${tasksN}</b>${plural(tasksN, 'task')} · ${RANGE.tasks} days</span>
+      <span style="--c:var(--accent)"><b>${focusMins ? fmtMins(focusMins) : 0}</b>focus · ${RANGE.focus} days</span>
+      <span style="--c:var(--gold)"><b>${msN}</b>${plural(msN, 'milestone')} · ${RANGE.tasks} days</span>
+      <span style="--c:var(--good)"><b>${recN}</b>${plural(recN, 'recovery', 'recoveries')} · ${RANGE.tasks} days</span>
+    </div>
+    <div class="day-head"><span class="label">TIMELINE · LAST ${histDays} DAYS</span></div>`;
   $('#histFilter').innerHTML = Object.entries(HIST_FILTERS).map(([k, label]) => `<button type="button" class="fchip" data-hfilter="${k}" aria-pressed="${histFilter === k}">${label}<span class="n">${k === 'all' ? inRange.length : n(k)}</span></button>`).join('');
   const today = dayKey(now), yesterday = dayKey(now - DAY);
   let html = '', day = '';
@@ -1916,8 +1923,14 @@ function renderHistory() {
   $('#histList').innerHTML = html || `<li class="empty">Nothing ${histFilter === 'all' ? '' : 'of this kind '}in the last ${histDays} days.</li>`;
   $('#histMore').hidden = !all.some((i) => i.t < since);
 }
-const KIND_OF = (i) => (state.events.find((e) => e.id === i.event) || {}).kind || '';
 
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#seeHistory')) return;
+  $('#statsDlg').close();
+  togglePanel('right', true);
+  setRightTab('history');
+  if (matchMedia('(max-width: 860px)').matches) setView('systems');
+});
 $('#histFilter').addEventListener('click', (e) => {
   const b = e.target.closest('[data-hfilter]');
   if (b) { histFilter = b.dataset.hfilter; renderHistory(); }
@@ -1959,7 +1972,7 @@ const KW_RULES = [
 ];
 const KW_RE = new RegExp(KW_RULES.map(([, r]) => `(${r.source})`).join('|'), 'g');
 // where it applies: descriptive text, not chips, buttons, headings or names
-const KW_SCOPE = '.hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .tl-d, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
+const KW_SCOPE = '.hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
 
 const typedNames = () => [state.name, ...state.tasks.map((t) => t.name), ...state.goals.map((g) => g.name), ...state.cal.map((e) => e.title)]
   .filter((n) => n && n.length > 1).sort((a, b) => b.length - a.length);

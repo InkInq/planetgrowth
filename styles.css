@@ -198,7 +198,8 @@ button { cursor: pointer; }
 }
 
 /* history timeline */
-.hist-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.hist-summary { display: flex; flex-direction: column; gap: 14px; }
+.hist-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .hist-stats > span { display: flex; flex-direction: column; gap: 2px; padding: 8px; background: var(--card); border: 2px solid var(--line); font-size: 15px; color: var(--muted); }
 .hist-stats b { font-family: var(--pixel); font-size: 15px; font-weight: 400; color: var(--c); }
 .filter-chips.hist-filter { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
@@ -735,15 +736,8 @@ body[data-view="calendar"] .panel.left { overflow: hidden; }
 .strip .d.open { background: transparent; box-shadow: inset 0 0 0 2px var(--line-2); }
 .rel-pct { text-align: right; color: var(--muted); }
 
-.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 260px; overflow-y: auto; }
-.timeline li { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 0 0 10px; }
-.timeline li::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: 0; width: 2px; background: var(--line); }
-.timeline li:last-child::before { display: none; }
-.tl-ico { width: 24px; height: 24px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 16%, var(--panel-solid)); }
-.tl-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 2px; }
-.tl-t { font-size: 19px; color: var(--c); line-height: 1; }
-.tl-d { font-size: 16px; color: var(--muted); }
-.tl-date { font-size: 16px; color: var(--muted); padding-top: 2px; white-space: nowrap; }
+#seeHistory { align-self: flex-start; gap: 8px; }
+#seeHistory .px { color: var(--accent); }
 .save-data { margin-top: 4px; padding-top: 14px; border-top: 2px dashed var(--line); }
 .save-data .dlg-actions { margin-top: 0; justify-content: flex-start; }
 
