@@ -1,18 +1,21 @@
 // The header (world name, era, streak) and the World panel: planet systems and the milestone road.
 import {
   CATS, SYSTEMS, MILESTONES, BLIGHTS, HOUR, DAY, rates, nextMilestone, milestoneProgress, forecast, eraOf, stats, fmtDuration,
+  cataclysmPreview, popCap, unlocked, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED,
 } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save } from './store.js';
 import { $, esc, fmtDate } from './util.js';
 import { ask } from './feedback.js';
+import { fmtPop } from './cataclysm.js';
 
 const SYS_FEED = { heat: 'PHYS', atmos: 'MIND', life: 'LIFE' };
 const SYS_SCALE = 700; // same full scale the globe visuals use
 const sysName = (k) => SYSTEMS[k].label.split(' · ').pop();
 
-function sysModifiers(k, now) {
+function sysModifiers(k, now, risk) {
   const out = [];
+  if (risk) out.push(`<span class="chip blight" title="The month's-end cataclysm would drop ${esc(risk.m.title)}">${icon('warn')}At risk · keep ${risk.need}+</span>`);
   const held = (state.stab[k] || 0) > now;
   for (const s of state.surges) {
     if (s.sys === k && s.until > now) out.push(`<span class="chip streak" title="${esc(s.name)}">${icon('surge')}×${s.mult} · ${fmtDuration((s.until - now) / HOUR)} left</span>`);
@@ -20,13 +23,13 @@ function sysModifiers(k, now) {
   if (held) out.push(`<span class="chip held">${icon('stabilizer')}Held · ${fmtDuration((state.stab[k] - now) / HOUR)} left</span>`);
   if (state.blights[k]) out.push(`<span class="chip blight">${icon('warn')}${BLIGHTS[k].title}${held ? ' · paused' : ' −0.4/h'}</span>`);
   if (state.gen[k] > 0.005) out.push(`<span class="chip muted" title="Boost from Steady tasks. It fades about 5% a day unless held.">${icon(held ? 'steady' : 'drift')}Tasks +${state.gen[k].toFixed(2)}/h${held ? '' : ' · fading'}</span>`);
-  if (k === 'life' && !state.milestones.rain) out.push(`<span class="chip muted">${icon('water')}×0.25 until First Rain</span>`);
+  if (k === 'life' && !unlocked(state, 'rain')) out.push(`<span class="chip muted">${icon('water')}×0.25 until First Rain</span>`);
   return out.join('');
 }
 
-function sysCard(k, now, r, next) {
+function sysCard(k, now, r, next, risk) {
   const s = SYSTEMS[k];
-  const locked = k === 'water' && !state.milestones.rain;
+  const locked = k === 'water' && !unlocked(state, 'rain');
   const v = state.res[k], rate = r[k];
   const rateCls = locked ? 'muted' : rate < -0.001 ? 'neg' : rate > 0.001 ? 'pos' : 'muted';
   const rateText = locked ? 'LOCKED' : (rate < 0 ? '−' : '+') + Math.abs(rate).toFixed(2) + '/h';
@@ -40,7 +43,7 @@ function sysCard(k, now, r, next) {
     </div>
     <div class="meter"><span class="fill" style="width:${Math.min(100, v / SYS_SCALE * 100)}%"></span>${target ? `<span class="mark" style="left:${Math.min(100, target / SYS_SCALE * 100)}%"></span>` : ''}</div>
     ${target && v < target ? `<div class="sys-next">${icon('flag')}${esc(next.title)} at ${target}</div>` : ''}
-    <div class="chips">${sysModifiers(k, now)}</div>
+    <div class="chips">${sysModifiers(k, now, risk)}</div>
   </div>`;
 }
 
@@ -51,6 +54,8 @@ function renderRoad(now) {
     const at = state.milestones[m.id];
     const need = Object.entries(m.req).map(([k, v]) => sysName(k) + ' ' + v).join(' + ');
     const era = m.id === 'bloom' ? '<span class="era-tag">ERA II</span>' : '';
+    const lostAt = !at && state.lost?.[m.id];
+    const lostLine = lostAt ? `<span class="d lost">Lost ${fmtDate(lostAt)}</span>` : '';
     if (at) {
       return `<li class="ms done"><span class="ms-node">${icon('check')}</span><span class="ms-body">
         <span class="t">${esc(m.title)}${era}</span><span class="d">Reached ${fmtDate(at)}</span></span></li>`;
@@ -61,10 +66,10 @@ function renderRoad(now) {
       return `<li class="ms current"><span class="ms-node">${icon('star')}</span><span class="ms-body">
         <span class="t">${esc(m.title)}${era}<span class="pct">${Math.floor(p * 100)}%</span></span>
         <span class="meter"><span class="fill" style="width:${p * 100}%"></span></span>
-        <span class="d">Needs ${need}</span><span class="d eta${fc.stalled ? ' stalled' : ''}">${eta}</span></span></li>`;
+        ${lostLine}<span class="d">Needs ${need}</span><span class="d eta${fc.stalled ? ' stalled' : ''}">${eta}</span></span></li>`;
     }
     return `<li class="ms"><span class="ms-node">${icon('lock')}</span><span class="ms-body">
-      <span class="t">${esc(m.title)}${era}</span><span class="d">Needs ${need}</span></span></li>`;
+      <span class="t">${esc(m.title)}${era}</span>${lostLine}<span class="d">Needs ${need}</span></span></li>`;
   }).join('');
 }
 
@@ -74,9 +79,40 @@ export function renderSystems() {
   const next = nextMilestone(state);
   const era = eraOf(state);
   const doneN = MILESTONES.filter((m) => state.milestones[m.id]).length;
-  $('#worldSummary').innerHTML = `<span class="era-badge">ERA ${era.n}</span><span class="ws-name">${era.name.toUpperCase()}</span><span class="ws-count" title="Milestones reached">${icon('star')}${doneN}/${MILESTONES.length}</span>`;
-  $('#systems').innerHTML = Object.keys(SYSTEMS).map((k) => sysCard(k, now, r, next)).join('');
+  const showPop = popCap(state) > 0 || state.pop >= 1;
+  $('#worldSummary').innerHTML = `<span class="era-badge">ERA ${era.n}</span><span class="ws-name">${era.name.toUpperCase()}</span>`
+    + (showPop ? `<span class="ws-count ws-pop" title="Pop: how alive your planet is. It grows toward ${fmtPop(popCap(state))} with the milestones you've reached.">${icon('pop')}${fmtPop(state.pop)}</span>` : '')
+    + `<span class="ws-count" title="Milestones reached">${icon('star')}${doneN}/${MILESTONES.length}</span>`;
+  const pv = cataclysmPreview(state, now);
+  $('#monthEnd').innerHTML = monthEnd(pv);
+  // in the last week, each system that needs more to keep a milestone says so on its card
+  const riskBy = {};
+  if (pv.daysLeft <= 7) for (const rk of pv.risks) for (const n of rk.needs) if (!riskBy[n.k] || n.need > riskBy[n.k].need) riskBy[n.k] = { m: rk.m, need: n.need };
+  $('#systems').innerHTML = Object.keys(SYSTEMS).map((k) => sysCard(k, now, r, next, riskBy[k])).join('');
   renderRoad(now);
+}
+
+// The card that warns about the month's-end cataclysm: what it takes, what's at risk, and how much Pop survives.
+function monthEnd(pv) {
+  const when = pv.daysLeft <= 1 ? 'tonight' : `in ${pv.daysLeft} days`;
+  if (pv.grace) {
+    return `<div class="me-head">${icon('meteor')}<span>MONTH'S END</span><span class="me-when">${when}</span></div>`
+      + `<p class="me-line"><span>Your world is new, so this month ends quietly. From next month on, each month ends with a cataclysm that takes ${CATACLYSM_HIT * 100}% of every system.</span></p>`;
+  }
+  const blighted = Object.keys(state.blights);
+  const lines = [`A cataclysm takes ${CATACLYSM_HIT * 100}% of every system${blighted.length ? `, ${CATACLYSM_HIT_BLIGHTED * 100}% from ${blighted.map(sysName).join(' and ')} while its blight lasts` : ''}.`];
+  if (pv.risks.length) {
+    lines.push(`If it struck today, you'd lose ${pv.risks.length === 1 ? 'a milestone' : pv.risks.length + ' milestones'}. To keep ${pv.risks.length === 1 ? 'it' : 'them'}:`);
+    for (const rk of pv.risks) lines.push(`${icon('warn')} <span>${esc(rk.m.title)}: ${rk.needs.map((n) => `${sysName(n.k)} ${n.need} (now ${Math.floor(n.have)})`).join(', ')}</span>`);
+  } else if (Object.keys(state.milestones).length) {
+    lines.push(`${icon('check')} <span>Your milestones have enough buffer to survive it.</span>`);
+  }
+  if (state.pop >= 1) {
+    const how = pv.consistency == null ? 'add daily tasks to save more' : `daily tasks ${Math.round(pv.consistency * 100)}% done, ${pv.goalsMet} goal${pv.goalsMet === 1 ? '' : 's'} met`;
+    lines.push(`${icon('pop')} <span>About ${Math.round(pv.survival * 100)}% of Pop would survive (${how}).</span>`);
+  }
+  return `<div class="me-head">${icon('meteor')}<span>MONTH'S END</span><span class="me-when${pv.daysLeft <= 3 ? ' soon' : ''}">${when}</span></div>`
+    + lines.map((l) => `<p class="me-line">${l}</p>`).join('');
 }
 
 export function renderHeader() {
@@ -96,6 +132,9 @@ export function renderHeader() {
   $('#streakPill').classList.toggle('hot', streak > 0);
   $('#streakPill').setAttribute('aria-label', `Streak: ${streak} day${streak === 1 ? '' : 's'}`);
   $('#forecast').textContent = forecast(state, now).text;
+  const showPop = popCap(state) > 0 || state.pop >= 1;
+  $('#popPill').hidden = !showPop;
+  $('#pop').textContent = fmtPop(state.pop);
 }
 
 $('#worldName').addEventListener('click', async () => {

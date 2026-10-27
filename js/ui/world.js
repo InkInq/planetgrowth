@@ -39,7 +39,7 @@ let selected = null; // selected event id
 let dragging = false, lastX = 0, autoSpin = true, spinResume = 0;
 const wrap = $('#globeWrap');
 wrap.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.node, .tip')) return;
+  if (e.target.closest('.node, .tip, .cata-banner')) return;
   dragging = true; lastX = e.clientX; wrap.classList.add('dragging');
   wrap.setPointerCapture(e.pointerId);
   closeTip();
@@ -72,8 +72,14 @@ export function spinGlobe(dt, t) {
 let lastMini = -1e9;
 const miniCtx = $('#miniGlobe').getContext('2d');
 miniCtx.imageSmoothingEnabled = false;
+// An effect layered on the planet for a moment, such as a cataclysm playing out (see cataclysm.js).
+let globeFx = () => null;
+export const setGlobeFx = (fn) => { globeFx = fn; };
 export function drawGlobe(t) {
-  globe.render(visuals(state, Date.now()), t);
+  const vis = visuals(state, Date.now());
+  const fx = globeFx(t);
+  if (fx) vis.cata = fx;
+  globe.render(vis, t);
   if (t - lastMini > 250) { miniCtx.clearRect(0, 0, 56, 56); miniCtx.drawImage(globe.buf, 0, 0, 56, 56); lastMini = t; }
   placeNodes();
 }
@@ -84,6 +90,8 @@ export const KIND = {
   goal: { color: 'var(--good)', label: 'GOAL' },
   blight: { color: 'var(--danger)', label: 'BLIGHT' },
   cleared: { color: 'var(--accent)', label: 'RESTORED' },
+  lost: { color: 'var(--danger)', label: 'LOST' },
+  cataclysm: { color: 'var(--danger)', label: 'CATACLYSM' },
 };
 const nodeEls = new Map();
 export const hasNode = (id) => nodeEls.has(id);

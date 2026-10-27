@@ -38,6 +38,7 @@
   <div class="top-right">
     <button type="button" class="pill focus-pill" id="focusPill" title="Focus timer"><span data-icon="clock"></span><span id="focusPillText">FOCUS</span></button>
     <span class="pill cycle-pill" title="Days since your world was seeded"><span data-icon="clock"></span><span id="cycle">CYCLE 001</span></span>
+    <span class="pill pop-pill desktop-only" id="popPill" title="Pop: how alive your planet is" hidden><span data-icon="pop"></span><span id="pop">0</span></span>
     <span class="pill streak-pill" id="streakPill" title="Days in a row with at least one task done"><span data-icon="streak"></span><span id="streak">0</span></span>
     <button class="btn-ghost desktop-only stats-btn" type="button" data-open="statsDlg"><span data-icon="chart"></span>STATS</button>
     <button class="btn-ghost icon-only" type="button" data-open="settingsDlg" aria-label="Settings" title="Settings"><span data-icon="gear"></span></button>
@@ -96,6 +97,7 @@
     <div class="globe-wrap" id="globeWrap">
       <canvas id="globe" role="img" aria-label="Your planet"></canvas>
       <div id="nodes" class="nodes"></div>
+      <button type="button" id="cataBanner" class="cata-banner" hidden aria-live="polite" title="Skip"></button>
       <div id="tip" class="tip" hidden></div>
     </div>
     <div class="forecast">
@@ -115,6 +117,7 @@
     </div>
     <section class="pane" id="paneSystems">
       <div id="worldSummary" class="world-summary"></div>
+      <div id="monthEnd" class="month-end"></div>
       <div class="label">SYSTEMS</div>
       <div id="systems" class="systems"></div>
       <div class="label">MILESTONES</div>
@@ -340,6 +343,10 @@
       <button type="submit" class="btn" id="askOk" value="ok">OK</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="cataDlg" class="dlg cata-dlg">
+  <form method="dialog"></form>
 </dialog>
 
 <dialog id="tutDlg" class="dlg">

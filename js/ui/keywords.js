@@ -5,18 +5,18 @@ import { state } from './store.js';
 
 const KW_RULES = [
   ['ms', /Polar Frost Melts|Haze Thickens|First Rain|First Sea|First Green|Biomes Spread|Era II\b|Era I\b/],
-  ['bad', /Deep Cooling|Dust Storm|Withering|−\d+(?:\.\d+)?(?:\/h)?|\b(?:[Bb]lights?|[Dd]rain(?:s|ing)?|[Mm]issed|[Ll]ost|[Ss]talled|[Oo]verdue|[Ff]ading)\b/],
+  ['bad', /Deep Cooling|Dust Storm|Withering|Ice Age|Dust Age|Great Flood|Plague|[Cc]ataclysms?|−\d+(?:\.\d+)?(?:\/h)?|\b(?:[Bb]lights?|[Dd]rain(?:s|ing)?|[Mm]issed|[Ll]ost|[Ss]talled|[Oo]verdue|[Ff]ading)\b/],
   ['num', /[+×]\s?\d+(?:\.\d+)?(?:\/h|%)?|\b[Dd]oubles\b/],
   ['heat', /\b(?:Crust · Heat|Heat|heat|Physical|PHYS)\b/],
   ['atmos', /\b(?:Atmosphere|atmosphere|[Hh]aze|Mental|MIND)\b/],
   ['water', /\b(?:Water|water)\b/],
   ['life', /\b(?:Social \/ Creative|Life|life|LIFE)\b/],
   ['fx', /\b(?:Steady|Surge|Catalyst|Stabilizer)\b/],
-  ['gold', /\b(?:[Rr]ewards?|[Ss]treaks?|days? worked|[Ll]andmarks?|[Mm]ilestones?)\b/],
+  ['gold', /\b(?:Pop|[Rr]ewards?|[Ss]treaks?|days? worked|[Ll]andmarks?|[Mm]ilestones?)\b/],
 ];
 const KW_RE = new RegExp(KW_RULES.map(([, r]) => `(${r.source})`).join('|'), 'g');
 // where it applies: descriptive text, not chips, buttons, headings or names
-const KW_SCOPE = '.coach p, .inline-coach p, .learned span, .fs .how, .tut-p, .hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
+const KW_SCOPE = '.coach p, .me-line span, .cata-dlg .hint, .cata-lost span, .inline-coach p, .learned span, .fs .how, .tut-p, .hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
 
 const typedNames = () => [state.name, ...state.tasks.map((t) => t.name), ...state.goals.map((g) => g.name), ...state.cal.map((e) => e.title)]
   .filter((n) => n && n.length > 1).sort((a, b) => b.length - a.length);

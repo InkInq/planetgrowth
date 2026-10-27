@@ -558,6 +558,43 @@ button { cursor: pointer; }
 .ms:not(.done):not(.current) .t { color: var(--muted); }
 .ms .t .pct { margin-left: auto; font-family: var(--pixel); font-size: 11px; color: var(--gold); }
 .ms .d { font-size: 16px; color: var(--muted); line-height: 1; }
+.ms .d.lost { color: var(--danger); }
+
+/* Month's end: the card that warns about the coming cataclysm */
+.month-end { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--card); border: 2px solid var(--line); border-left: 4px solid var(--danger); }
+.me-head { display: flex; align-items: center; gap: 8px; font-family: var(--pixel); font-size: 11px; letter-spacing: 1px; }
+.me-head > .px { color: var(--danger); width: 16px; height: 16px; }
+.me-when { margin-left: auto; font-family: var(--body, inherit); font-size: 17px; letter-spacing: 0; color: var(--muted); }
+.me-when.soon { color: var(--danger); }
+.me-line { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: 17px; line-height: 1.15; color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
+.me-line > .px { flex: none; margin-top: 3px; color: var(--muted); }
+.ws-pop { margin-left: auto; }
+.pop-pill { font-family: var(--pixel); font-size: 13px; }
+.pop-pill .px { color: var(--gold); }
+.chip.good { --chip: var(--good); }
+
+/* the cataclysm playing out over the globe, then its report */
+.cata-banner {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 20px;
+  background: var(--hud); border: 2px solid var(--danger); box-shadow: inset 2px 2px 0 var(--hud-hi), 4px 4px 0 var(--hud-cast);
+  color: var(--text); cursor: pointer; animation: cata-in 0.5s steps(5) both;
+}
+.cata-banner[hidden] { display: none; }
+.cata-banner .k { font-family: var(--pixel); font-size: 10px; letter-spacing: 2px; color: var(--danger); }
+.cata-banner .t { font-family: var(--pixel); font-size: 20px; letter-spacing: 1px; }
+@keyframes cata-in { from { opacity: 0; transform: translate(-50%, -30%); } }
+.cata-dlg h2 { margin: 2px 0 0; }
+.cata-k { display: flex; align-items: center; gap: 8px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; color: var(--danger); }
+.cata-sys, .cata-lost { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cata-sys li, .cata-pop { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 19px; }
+.cata-sys .ico { color: var(--c); }
+.cata-pop .ico { color: var(--gold); }
+.cata-sys .v, .cata-pop .v { color: var(--muted); white-space: nowrap; }
+.cata-sys .v b, .cata-pop .v b { color: var(--text); font-weight: 400; }
+.cata-lost li { display: flex; gap: 8px; align-items: flex-start; font-size: 18px; }
+.cata-lost li > .px { color: var(--danger); flex: none; margin-top: 3px; }
+.cata-dlg .hint .px { color: var(--good); vertical-align: -1px; }
 .ms .eta { color: var(--text); }
 .ms .eta.stalled { color: var(--danger); }
 .ms .meter { --seg-gap: var(--panel-solid); height: 10px; }

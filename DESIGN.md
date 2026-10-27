@@ -9,16 +9,21 @@ Decisions about where the game is going, and ideas pinned for later. The README 
 ### One planet, through the eras
 You keep a single planet and evolve it through the eras. There are no new planets each month.
 
-### Monthly cataclysm: a setback, not a reset
+### Monthly cataclysm: a setback, not a reset (built)
 - At the end of every month a cataclysm strikes. Its type (ice age, dust storm, flood, plague) is random and only changes how it looks and reads.
 - **It takes 25% of every system's level.** This is a simple, fixed amount, so you can plan around it rather than manage it.
 - **Active blights make it worse:** a system with a blight on it at that moment loses more.
 - **Setbacks can undo milestones.** Cataclysms and blights can drop a system below what a milestone needs, and the milestone is lost until it's earned again. Keeping a buffer above your milestones before the month ends protects them.
+- Numbers: 25%, or 40% with an active blight. A milestone is lost below 80% of its requirement (each one checked on its own) and earned back at 100%. Eras can drop.
+- What a milestone unlocked stays unlocked after it's lost, so one setback can't snowball (losing First Rain doesn't stop Water forming).
+- A world younger than 14 days at its first month's end is spared, so nobody's first week ends in a cataclysm.
+- It plays on the globe (ice sweeping down, dust storms, the sea surging, land withering), then a report shows each system before and after, milestones lost, and Pop that survived. It's also kept in History.
 
-### Pop (population)
+### Pop (population) (built)
 - A number that shows how alive the planet is. For now it has no other use: no unlocks are bought with it.
 - It grows slowly on its own, toward a ceiling set by the milestones reached.
 - Part of it survives each cataclysm: more after a consistent month (daily tasks done, goals met).
+- Numbers: ceilings First Rain 200, First Sea +500, First Green +1,500, Biomes Spread +4,000. Grows 4% of the gap a day, shrinks 5% a day when over the ceiling. Survival = 60% + 30% × share of daily tasks done that month + 5% per goal met, at most 95%.
 
 ### Pacing (to be measured by simulation)
 The eras span months, not weeks. Targets for a steady player (about 70% of daily tasks, goals mostly met):

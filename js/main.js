@@ -10,6 +10,7 @@
 //   keywords  bold, colored game words               feedback  toasts, floating numbers, ask dialog
 //   render    renderAll(), redraws everything        util      small shared helpers
 //   tutorial  First Steps, the guided first tasks     reminders notifications and their settings
+//   cataclysm the month's-end cataclysm and its report
 // merge.js combines two saves of the same world (Import in Settings).
 import { HOUR, advance } from './sim.js';
 import { icon } from './icons.js';
@@ -26,6 +27,8 @@ import { focusTick } from './ui/focus.js';
 import { initKeywords } from './ui/keywords.js';
 import { maybeWelcome, placeCoach } from './ui/tutorial.js';
 import { checkReminders } from './ui/reminders.js';
+import { checkCataclysm } from './ui/cataclysm.js';
+import { cataclysm } from './sim.js';
 
 applyTheme(currentTheme(), false);
 // the pixel icons written into index.html as data-icon="name"
@@ -53,6 +56,7 @@ function frame(t) {
   if (t - lastUi > 5000) { renderHeader(); renderSystems(); updateNowLine(); save(); lastUi = t; }
   if (t - lastFocus > 250) { focusTick(); lastFocus = t; }
   if (t - lastRemind > 30000) { checkReminders(); lastRemind = t; }
+  if (t - lastSim < 20) checkCataclysm(); // right after each simulation step
   drawGlobe(t);
   placeCoach();
   requestAnimationFrame(frame);
@@ -74,5 +78,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:' && !devHost) {
 // debug hook for testing: window.__pg.fastForward(hours)
 window.__pg = {
   get state() { return state; },
+  // plays a month's-end cataclysm now (type: ice, dust, flood or plague; random if left out)
+  cataclysm(type) { cataclysm(state, Date.now(), pending, type); announce(pending); renderAll(); save(); },
   fastForward(h) { state.lastTick -= h * HOUR; state.created -= h * HOUR; advance(state, Date.now(), pending); announce(pending); renderAll(); save(); },
 };

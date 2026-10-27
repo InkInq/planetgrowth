@@ -50,6 +50,19 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 
 Missing two or more daily tasks in a category spawns a **blight** (Deep Cooling, Dust Storm, Withering) that drains that system until you complete two tasks of that category.
 
+**Month's end: the cataclysm**
+
+When a month ends, a cataclysm strikes: an Ice Age, Dust Age, Great Flood or Plague, picked at random. It plays out on the globe, then a report shows what it took.
+
+- It takes 25% of every system, and 40% from a system with an active blight.
+- A milestone is lost when a system falls below 80% of what it needs, from a cataclysm or a blight. It's earned back at the full amount. What it unlocked (Water forming, Life at full speed) stays unlocked, and the era can drop.
+- The World panel's Month's End card shows the days left, which milestones would be lost if it struck today, and the level each system needs to keep them.
+- A new world is spared if it's less than 14 days old when its first month ends.
+
+**Pop**
+
+Pop is a number for how alive the planet is. It grows slowly toward a ceiling set by the milestones you hold (First Rain 200, First Sea +500, First Green +1,500, Biomes Spread +4,000) and shrinks if the ceiling drops. At month's end, 60% survives, plus up to 30% for the share of daily tasks done that month and 5% per goal met (95% at most).
+
 **Focus sessions (pomodoro)**
 
 Start a focus session from the FOCUS button in the top bar, or from a goal card to tag it to that goal. Pick a round length (15–60 min) and 1–4 rounds with 5-minute breaks between.
@@ -86,7 +99,7 @@ Saves stay on the device. Export the world on one device and Import it on the ot
 
 **Events on the globe**
 
-Milestones, goals, blights and recoveries appear as nodes on the planet. Tap one to see when it happened and which tasks caused it or can fix it.
+Milestones, goals, blights, recoveries, lost milestones and cataclysms appear as nodes on the planet. Tap one to see when it happened and which tasks caused it or can fix it.
 
 **Milestones (Era I → II)**
 
@@ -100,13 +113,13 @@ A forecast under the globe estimates when the next milestone lands at your curre
 - `js/merge.js`: merging two saves of the same world (Import in Settings). Pure logic, no DOM.
 - `js/globe.js`: pixel globe renderer (a 112 px buffer scaled up crisply).
 - `js/main.js`: starts the app and runs the game loop.
-- `js/ui/`: the interface, one file per part of the screen: `tasks`, `goals`, `calendar`, `focus`, `systems` (header and World panel), `history`, `stats`, `settings`, `themes`, `world` (globe and its markers), `layout` (dialogs, phone tabs, side panels), `tutorial` (First Steps), `reminders`, plus `store` (the save), `render` (redraw everything), `feedback` (toasts), `keywords` and `util`.
+- `js/ui/`: the interface, one file per part of the screen: `tasks`, `goals`, `calendar`, `focus`, `systems` (header and World panel), `history`, `stats`, `settings`, `themes`, `world` (globe and its markers), `cataclysm` (month's end and its report), `layout` (dialogs, phone tabs, side panels), `tutorial` (First Steps), `reminders`, plus `store` (the save), `render` (redraw everything), `feedback` (toasts), `keywords` and `util`.
 - `js/icons.js`: 8×8 pixel icons drawn as inline SVG.
 - `sw.js`, `manifest.webmanifest`, `icons/`: PWA install and offline support.
 
 Tuning numbers live at the top of `js/sim.js` and in `MILESTONES`.
 
-For testing in the browser console: `__pg.fastForward(24)` advances the world by 24 hours. On `localhost` the offline cache is skipped, so edits show on reload.
+For testing in the browser console: `__pg.fastForward(24)` advances the world by 24 hours, and `__pg.cataclysm('ice')` plays a month's end now (`ice`, `dust`, `flood` or `plague`). On `localhost` the offline cache is skipped, so edits show on reload.
 
 ## Roadmap ideas
 

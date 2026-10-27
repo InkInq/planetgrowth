@@ -17,6 +17,7 @@ const P = (arr) => arr.map(hex);
 const pDesert = P(DESERT), pSea = P(SEA), pGreen = P(GREEN), pIce = P(ICE), pNight = P(NIGHT);
 const DUST = hex('#e8c7a8'), DUST2 = hex('#c9a088'), CLOUD = hex('#e8e0ff'), CLOUD2 = hex('#b8acd8');
 const LIGHT = hex('#ffd27a');
+const ROT = hex('#5b3a2e'), ROT2 = hex('#7a4a33'); // withered land during a plague
 
 function hash(x, y, s) {
   let h = x * 374761393 + y * 668265263 + s * 2147483647;
@@ -174,9 +175,14 @@ export class Globe {
     const data = this.img.data;
     const g = this.geo;
     const HALO = this.halo, RIM = this.rim;
-    const iceLat = 1.02 + (1 - vis.ice) * 0.5; // caps shrink as ice melts
+    // a cataclysm playing out (vis.cata = { type, s }, s rising 0→1 and back): ice sweeps toward the equator,
+    // dust covers everything, the sea surges over the land, or green withers to brown
+    const cata = vis.cata || { type: '', s: 0 };
+    const cs = (type) => (cata.type === type ? cata.s : 0);
+    const iceLat = 1.02 + (1 - vis.ice) * 0.5 - cs('ice') * 1.6; // caps shrink as ice melts
     // Water fills the basins from the deepest point up: dry at 0, about 55% ocean at full, leaving land for Life.
-    const seaLevel = this.seaLevelFor(vis.sea * 0.55);
+    const seaLevel = this.seaLevelFor(Math.min(0.97, vis.sea * 0.55 + cs('flood') * 0.6));
+    const plague = cs('plague'), dustAll = cs('dust');
     const cloudCut = 1 - vis.clouds * 0.55;
     const dustC = { lon: 0.6, lat: 0.12 };
     for (let y = 0; y < RES; y++) {
@@ -200,14 +206,16 @@ export class Globe {
         if (lit < 0.04) {
           col = pNight[lit < -0.25 ? 0 : lit < -0.08 ? 1 : 2];
           // city lights on the night side in later eras
-          if (vis.lights > 0 && h > seaLevel + 0.02 && this.sample(this.clouds, lon * 3, lat * 3) > 1 - vis.lights * 0.35) col = LIGHT;
+          if (vis.lights > 0 && !plague && h > seaLevel + 0.02 && this.sample(this.clouds, lon * 3, lat * 3) > 1 - vis.lights * 0.35) col = LIGHT;
         } else if (Math.abs(lat) > iceLat + h * 0.25 + (vis.cooling ? -0.15 : 0)) {
           col = pIce[Math.max(0, Math.min(3, Math.floor(lit * 4.4)))];
         } else if (h < seaLevel) {
           const depth = (seaLevel - h) * 4;
           col = pSea[Math.max(0, Math.min(4, Math.floor(lit * 5 - depth * 1.2 + 0.5)))];
         } else if (vis.green > 0 && h < seaLevel + vis.green * 0.32 && Math.abs(lat) < 1.1 && !(vis.wither && dith > 0)) {
-          col = pGreen[Math.max(0, Math.min(4, Math.floor(lit * 5 + h * 2)))];
+          col = plague > dith + 0.5 ? (lit > 0.4 ? ROT2 : ROT) : pGreen[Math.max(0, Math.min(4, Math.floor(lit * 5 + h * 2)))];
+        } else if (plague > 0.3 && h < seaLevel + 0.12 && dith > 0.5 - plague) {
+          col = lit > 0.4 ? ROT2 : ROT; // the shores rot too, so a plague shows even before First Green
         } else {
           const v = lit * 0.85 + 0.12 + h * 0.5;
           col = pDesert[Math.max(0, Math.min(7, Math.floor(v * 8)))];
@@ -221,6 +229,11 @@ export class Globe {
             const band = Math.sin(Math.atan2(dla, dl) * 2 + sd * 22 - t * 0.0006);
             if (band > 0.1 + sd) col = sd < 0.25 ? DUST : DUST2;
           }
+        }
+        // a dust age: storms over the whole planet, rolling with the clouds
+        if (dustAll > 0 && lit > 0.04) {
+          const dv = this.sample(this.clouds, lon * 1.5 - t * 0.0004, lat * 1.5);
+          if (dv > 1 - dustAll * 0.85) col = dv > 1 - dustAll * 0.6 ? DUST : DUST2;
         }
         // clouds
         if (vis.clouds > 0.05 && lit > 0.04) {

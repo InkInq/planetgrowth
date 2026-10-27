@@ -75,7 +75,18 @@ export function mergeSaves(local, incoming, now) {
 
   // planet events (milestones, blights, landmarks)
   out.events = joinById(out.events, old.events, {}, {}).filter((e) => !dropEvents.has(e.id)).sort((a, b) => a.t - b.t);
-  for (const [id, t] of Object.entries(old.milestones || {})) out.milestones[id] = Math.min(out.milestones[id] || Infinity, t);
+  // milestones: reached on either device, unless this save lost it after the other reached it
+  out.lost = { ...(old.lost || {}), ...(out.lost || {}) };
+  for (const [id, t] of Object.entries(old.milestones || {})) {
+    if (!out.milestones[id] && (out.lost[id] || 0) > t) continue;
+    out.milestones[id] = Math.min(out.milestones[id] || Infinity, t);
+  }
+  // month's-end cataclysms: one per month; when both devices saw the same one, this save's is kept
+  const months = new Set((out.cataclysms || []).map((c) => c.month));
+  const dupCata = new Set((old.cataclysms || []).filter((c) => months.has(c.month)).map((c) => c.id));
+  out.cataclysms = [...(out.cataclysms || []), ...(old.cataclysms || []).filter((c) => !dupCata.has(c.id))].sort((a, b) => a.t - b.t);
+  out.events = out.events.filter((e) => !dupCata.has(e.id));
+  if ((old.lastMonth || '') > (out.lastMonth || '')) out.lastMonth = old.lastMonth;
 
   // a goal that crosses its target with the combined progress is met now
   for (const g of out.goals) goalProgress(out, g, 0, now, []);

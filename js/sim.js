@@ -75,6 +75,10 @@ export function newState(now) {
     stab: {},
     blights: {},
     milestones: {},
+    lost: {}, // milestone id -> when it was last lost (to a cataclysm or a blight)
+    pop: 0, // how alive the planet is; grows toward popCap()
+    lastMonth: monthKey(now), // the month the world is in; changing it brings the cataclysm
+    cataclysms: [], // month's-end records, newest last
     tasks: [], // a new world starts with First Steps (see ui/tutorial.js), not sample tasks
     tutorial: { welcome: true },
     goals: [],
@@ -94,17 +98,21 @@ function surgeMult(state, sys, now) {
   return m;
 }
 
+// What a milestone unlocks stays unlocked after the milestone is lost, so one setback can't snowball
+// (losing First Rain doesn't stop Water forming).
+export const unlocked = (state, id) => !!(state.milestones[id] || state.lost?.[id]);
+
 function stabilized(state, sys, now) { return (state.stab[sys] || 0) > now; }
 
 export function rates(state, now) {
   const r = {};
   for (const sys of ['heat', 'atmos', 'life']) {
     let v = (SYSTEMS[sys].base + state.gen[sys]) * surgeMult(state, sys, now);
-    if (sys === 'life' && !state.milestones.rain) v *= 0.25; // life struggles before water
+    if (sys === 'life' && !unlocked(state, 'rain')) v *= 0.25; // life struggles before water
     if (state.blights[sys] && !stabilized(state, sys, now)) v -= BLIGHT_DRAIN;
     r[sys] = v;
   }
-  if (state.milestones.rain) {
+  if (unlocked(state, 'rain')) {
     r.water = 0.15 + 0.8 * Math.min(state.gen.heat + 0.2, state.gen.atmos + 0.05);
   } else r.water = 0;
   return r;
@@ -124,24 +132,146 @@ export function advance(state, now, events) {
     for (const sys in state.gen) {
       if (!stabilized(state, sys, t)) state.gen[sys] *= Math.exp(-DRIFT_PER_DAY / 24 * dtH);
     }
+    growPop(state, dtH);
     t += dtMs;
     checkMilestones(state, t, events);
   }
   state.surges = state.surges.filter((s) => s.until > now);
   state.lastTick = now;
   rollDays(state, now, events);
+  state.lastMonth ||= monthKey(now); // saves from before cataclysms start counting from now
+  if (monthKey(now) !== state.lastMonth) {
+    if (now - state.created < GRACE_DAYS * DAY) state.lastMonth = monthKey(now); // a new world's first month ends quietly
+    else cataclysm(state, now, events);
+  }
 }
 
 function checkMilestones(state, t, events) {
+  loseMilestones(state, t, events);
   for (const m of MILESTONES) {
     if (state.milestones[m.id]) continue;
     const ok = Object.keys(m.req).every((k) => state.res[k] >= m.req[k]);
     if (!ok) break; // strictly in order
     state.milestones[m.id] = t;
-    const ev = { id: uid(), kind: 'milestone', title: m.title, body: m.body, t, lat: m.lat, lon: m.lon, links: topContributors(state, t) };
+    const back = !!state.lost?.[m.id];
+    if (back) delete state.lost[m.id];
+    const ev = { id: uid(), kind: 'milestone', title: m.title, body: back ? m.body + ' Earned back after it was lost.' : m.body, t, lat: m.lat, lon: m.lon, links: topContributors(state, t) };
     state.events.push(ev);
     events.push(ev);
   }
+}
+
+// A milestone is lost when a system it needs falls below MILESTONE_KEEP of its requirement. Each is checked
+// on its own (they depend on different systems); earning stays in order, so a lost one is the next to earn back,
+// and that needs the full requirement.
+export const MILESTONE_KEEP = 0.8;
+const sysWord = { heat: 'Heat', atmos: 'Atmosphere', water: 'Water', life: 'Life' };
+function loseMilestones(state, t, events) {
+  for (let i = MILESTONES.length - 1; i >= 0; i--) {
+    const m = MILESTONES[i];
+    if (!state.milestones[m.id]) continue;
+    const short = Object.keys(m.req).filter((k) => state.res[k] < m.req[k] * MILESTONE_KEEP);
+    if (!short.length) continue;
+    delete state.milestones[m.id];
+    (state.lost ||= {})[m.id] = t;
+    const need = Object.entries(m.req).map(([k, v]) => sysWord[k] + ' ' + v).join(' + ');
+    const ev = { id: uid(), kind: 'lost', title: m.title + ' Lost', body: `${short.map((k) => sysWord[k]).join(' and ')} fell below ${MILESTONE_KEEP * 100}% of what it needs. Earn it back at ${need}.`, t, lat: m.lat, lon: m.lon, links: [] };
+    state.events.push(ev);
+    events.push(ev);
+  }
+}
+
+// ---------- the monthly cataclysm and Pop ----------
+// At month's end every system loses CATACLYSM_HIT of its level (more if a blight is active on it),
+// which can cost milestones. Its type is random and only changes how it looks and reads.
+export const CATACLYSM_HIT = 0.25;
+export const GRACE_DAYS = 14; // a world younger than this when its month ends is spared
+export const CATACLYSM_HIT_BLIGHTED = 0.4;
+export const CATACLYSMS = {
+  ice: { title: 'Ice Age', body: 'Glaciers crept down from the poles and the planet froze over.', lat: 1.0, lon: 0.8 },
+  dust: { title: 'Dust Age', body: 'Storms of dust blotted out the sun for weeks.', lat: 0.1, lon: 0.6 },
+  flood: { title: 'Great Flood', body: 'The seas rose and swallowed the lowlands.', lat: -0.2, lon: 5.0 },
+  plague: { title: 'Plague', body: 'A sickness swept the planet and much of its life withered.', lat: 0.0, lon: 4.2 },
+};
+export const cataclysmHit = (state, k) => (state.blights[k] ? CATACLYSM_HIT_BLIGHTED : CATACLYSM_HIT);
+
+// Pop: how alive the planet is. Each milestone raises how many it can hold; it grows a few % a day toward that,
+// and shrinks slowly if a lost milestone lowers it.
+export const POP_CAP = { rain: 200, sea: 500, green: 1500, bloom: 4000 };
+const POP_GROW = 0.04, POP_SHRINK = 0.05; // per day
+export const popCap = (state) => Object.entries(POP_CAP).reduce((n, [id, c]) => n + (state.milestones[id] ? c : 0), 0);
+function growPop(state, dtH) {
+  const cap = popCap(state), pop = state.pop || 0;
+  state.pop = cap + (pop - cap) * Math.exp(-(pop < cap ? POP_GROW : POP_SHRINK) * dtH / 24);
+}
+// The share that survives a cataclysm: a base, plus more for a consistent month and for each goal met.
+export const POP_SURVIVE = { base: 0.6, consistency: 0.3, goal: 0.05, max: 0.95 };
+export const popSurvival = (consistency, goalsMet) => Math.min(POP_SURVIVE.max, POP_SURVIVE.base + POP_SURVIVE.consistency * consistency + POP_SURVIVE.goal * goalsMet);
+
+// Share of daily tasks done in a month (up to `now`), counting only days each task existed. Null if there were none.
+export function monthConsistency(state, mk, now) {
+  const [y, m] = mk.split('-').map(Number);
+  const done = new Set(state.history.map((h) => h.taskId + '|' + dayKey(h.t)));
+  const daily = state.tasks.filter((x) => x.recurring && !x.tut);
+  let due = 0, did = 0;
+  for (const d = new Date(y, m - 1, 1, 12); monthKey(d) === mk && d.getTime() <= now; d.setDate(d.getDate() + 1)) {
+    const k = dayKey(d);
+    if (k < dayKey(state.created)) continue;
+    for (const x of daily) if (dayKey(x.created) <= k) { due++; if (done.has(x.id + '|' + k)) did++; }
+  }
+  return due ? did / due : null;
+}
+export const goalsMetIn = (state, mk) => state.goals.filter((g) => g.done && goalMonth(g) === mk).length;
+
+export function cataclysm(state, now, events, type) {
+  const ended = state.lastMonth || monthKey(now);
+  state.lastMonth = monthKey(now);
+  type = CATACLYSMS[type] ? type : Object.keys(CATACLYSMS)[Math.floor(Math.random() * 4)];
+  const c = CATACLYSMS[type];
+  const id = uid();
+  const blighted = Object.keys(state.blights);
+  const ev = { id, kind: 'cataclysm', title: c.title, body: `${c.body} Every system lost ${CATACLYSM_HIT * 100}%${blighted.length ? `, and ${CATACLYSM_HIT_BLIGHTED * 100}% where a blight was active` : ''}.`, t: now, lat: c.lat, lon: c.lon, links: [] };
+  state.events.push(ev);
+  events.push(ev);
+  const hit = {};
+  for (const k in state.res) {
+    const rate = cataclysmHit(state, k);
+    hit[k] = { before: state.res[k], after: state.res[k] * (1 - rate), rate, blighted: !!state.blights[k] };
+    state.res[k] = hit[k].after;
+  }
+  const had = new Set(Object.keys(state.milestones));
+  loseMilestones(state, now, events);
+  const msLost = MILESTONES.filter((m) => had.has(m.id) && !state.milestones[m.id]).map((m) => m.id);
+  ev.links = msLost.map((mid) => MILESTONES.find((m) => m.id === mid).title + ' lost');
+  const consistency = monthConsistency(state, ended, now);
+  const goalsMet = goalsMetIn(state, ended);
+  const survival = popSurvival(consistency || 0, goalsMet);
+  const popBefore = state.pop || 0;
+  state.pop = popBefore * survival;
+  (state.cataclysms ||= []).push({ id, t: now, month: ended, type, hit, msLost, consistency, goalsMet, survival, popBefore, popAfter: state.pop, seen: false });
+}
+
+// What the coming cataclysm would do if the month ended now: milestones at risk, the level each
+// system needs to keep them, and how much Pop would survive.
+export function cataclysmPreview(state, now) {
+  const res = {};
+  for (const k in state.res) res[k] = state.res[k] * (1 - cataclysmHit(state, k));
+  const risks = [];
+  for (let i = MILESTONES.length - 1; i >= 0; i--) {
+    const m = MILESTONES[i];
+    if (!state.milestones[m.id]) continue;
+    const short = Object.keys(m.req).filter((k) => res[k] < m.req[k] * MILESTONE_KEEP);
+    if (!short.length) continue;
+    risks.push({ m, needs: short.map((k) => ({ k, have: state.res[k], need: Math.ceil(m.req[k] * MILESTONE_KEEP / (1 - cataclysmHit(state, k))) })) });
+  }
+  const mk = monthKey(now);
+  const [y, mo] = mk.split('-').map(Number);
+  const ends = new Date(y, mo, 1).getTime();
+  const daysLeft = Math.ceil((ends - now) / DAY);
+  const grace = ends - state.created < GRACE_DAYS * DAY;
+  const consistency = monthConsistency(state, mk, now);
+  const goalsMet = goalsMetIn(state, mk);
+  return { daysLeft, grace, risks, consistency, goalsMet, survival: popSurvival(consistency || 0, goalsMet) };
 }
 
 export function topContributors(state, t) {

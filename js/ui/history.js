@@ -8,7 +8,7 @@ import { jumpToTask } from './tasks.js';
 import { openGoalDlg } from './goals.js';
 import { setView, togglePanel } from './layout.js';
 
-const EVENT_ICON = { milestone: 'star', goal: 'flag', blight: 'warn', cleared: 'check' };
+const EVENT_ICON = { milestone: 'star', goal: 'flag', blight: 'warn', cleared: 'check', lost: 'warn', cataclysm: 'meteor' };
 const isMilestoneEvent = (e) => e.kind === 'milestone' && MILESTONES.some((m) => m.title === e.title);
 
 let rightTab = 'systems';

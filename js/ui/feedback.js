@@ -18,8 +18,11 @@ export function toast(msg, action) {
 }
 
 export function announce(evs) {
+  const cata = evs.some((e) => e.kind === 'cataclysm'); // the month's-end report covers everything it did
   for (const e of evs) {
-    if (e.kind === 'milestone') toast('★ ' + e.title);
+    if (cata) break;
+    if (e.kind === 'lost') toast('⚠ ' + e.title + ' — earn it back');
+    else if (e.kind === 'milestone') toast('★ ' + e.title);
     else if (e.kind === 'blight') toast('⚠ ' + e.title + ' — tap it on the globe');
     else if (e.kind === 'cleared') toast('✓ ' + e.title);
     else if (e.kind === 'goal') toast('★ ' + e.title + ' complete');
