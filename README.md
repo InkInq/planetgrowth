@@ -119,6 +119,8 @@ A forecast under the globe estimates when the next milestone lands at your curre
 
 Tuning numbers live at the top of `js/sim.js` and in `MILESTONES`.
 
+`node tools/playtest.mjs` simulates casual, steady and dedicated players for a year on the real rules and reports pacing (see DESIGN.md for results).
+
 For testing in the browser console: `__pg.fastForward(24)` advances the world by 24 hours, and `__pg.cataclysm('ice')` plays a month's end now (`ice`, `dust`, `flood` or `plague`). On `localhost` the offline cache is skipped, so edits show on reload.
 
 ## Roadmap ideas

@@ -36,6 +36,29 @@ The eras span months, not weeks. Targets for a steady player (about 70% of daily
 
 There should be a milestone to reach every week or two, so Eras II and III each need about 5–6.
 
+### Playtest results (October 2026)
+Measured with `node tools/playtest.mjs`: simulated players on the real rules for 12 months, 40 runs each.
+Casual does about 40% of daily tasks (4 tasks, 1 goal a month), steady about 70% (6 tasks, 2 goals), dedicated about 90% (7 tasks including a Stabilizer, 3 goals).
+
+| | Casual | Steady | Dedicated |
+| --- | --- | --- | --- |
+| First milestone (Polar Frost) | 4.2 weeks | 5 days | 4 days |
+| Era II (Biomes Spread) | 29 weeks, 83% of runs | 7.3 weeks | 5.4 weeks |
+| Days with a blight active | 81% | 16% | 1% |
+| Blights a month | 15 | 12.6 | 3.1 |
+| Milestones lost in a year | 2.5 | 0.1 | 0.1 |
+| Pop surviving a month's end | 77% | 91% | 95% |
+| System levels before month's end (month 3 → 12) | ~500 → ~1,000 | ~2,000 → ~3,500 | ~3,000 → ~5,500 |
+
+What it shows:
+- **Steady pacing is close.** A milestone lands every 4–12 days, but Era I takes 7.3 weeks against the 4–6 week target. Lowering Biomes Spread to Life 350 + Water 450 brings it to 6.1 weeks (dedicated 4.6).
+- **Blights are too frequent.** One day off blights every category, so a steady player gets one every 2–3 days, and a category with a single task blights every time it's missed. Casual players live under a blight. Tested fix: a blight starts only when a category misses 2+ tasks two days in a row. Steady drops to 2.4 a month (3% of days), and casual to 20% of days, with Era II in 12 weeks instead of 29.
+- **The cataclysm sets a natural ceiling.** Losing 25% a month while gaining a steady amount makes each system level off at about 4× what you add in a month. Each consistency level gets its own plateau, so Era II and III requirements can be pitched at those plateaus: a milestone held only while you stay that consistent.
+- **The cataclysm only bites early for now.** After month 2 steady players are far above every Era I requirement, so they lose nothing; it's Era II content that will give it teeth (requirements around 1,000–3,500).
+- **Pop stops growing around month 3**, when it reaches the Era I ceiling (6,200). Era II needs its own ceilings.
+- **A daily Stabilizer makes a system grow without limit** (dedicated Atmosphere reaches 28,000 versus about 5,000 for the others), because its Steady boosts never fade. Tested fix: a Stabilizer halves the fade instead of stopping it (8,600).
+- **A two-week break costs nothing** once past Era I: with the app closed nothing runs, and the planet picks up where it was.
+
 ## Pinned for later
 
 ### Unlocks bought with Pop
