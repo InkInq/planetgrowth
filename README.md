@@ -110,6 +110,9 @@ For testing in the browser console: `__pg.fastForward(24)` advances the world by
 
 ## Roadmap ideas
 
+Decided direction and pinned ideas live in [DESIGN.md](DESIGN.md).
+
+
 - Rhythm detection: suggest scheduling tasks you reliably do on certain weekdays
 - Era II and beyond: civilization, orbit, moons
 - Task-mix shaping the planet's look (volcanic vs ocean worlds)
