@@ -24,7 +24,8 @@ export function applyTheme(id, persist) {
   if (persist) { try { localStorage.setItem(THEME_KEY, id); } catch (e) { /* storage unavailable */ } }
   const css = getComputedStyle(document.documentElement);
   const v = (name) => css.getPropertyValue(name).trim();
-  document.querySelector('meta[name="theme-color"]').content = v('--bg');
+  const meta = document.querySelector('meta[name="theme-color"]'); // a host page may not carry it
+  if (meta) meta.content = v('--bg');
   globe.setTheme(v('--rim'), v('--halo'));
   drawStars();
 }
