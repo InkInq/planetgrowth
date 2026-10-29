@@ -163,6 +163,7 @@ export function renderHeader() {
   $('#cycle').textContent = 'CYCLE ' + String(cycle).padStart(3, '0');
   const streak = stats(state, now).streak;
   $('#streak').textContent = streak;
+  $('#streakPill').hidden = streak === 0; // shown only while a streak is going
   $('#streakPill').classList.toggle('hot', streak > 0);
   $('#streakPill').setAttribute('aria-label', `Streak: ${streak} day${streak === 1 ? '' : 's'}`);
   $('#forecast').textContent = forecast(state, now).text;
