@@ -83,6 +83,8 @@ const seeds = (n, s) => Array.from({ length: n }, (_, i) => ({ a: hash(i, 1, s),
 const HERDS = seeds(14, 11), SHIPS = seeds(16, 23), PLANES = seeds(12, 37), SATS = seeds(5, 51);
 const LAUNCH = { lat: -0.05, lon: 1.9 }; // the launch site (Reach for the Stars)
 
+// blend col toward c by m (0..1)
+const mix = (col, c, m) => [col[0] + (c[0] - col[0]) * m, col[1] + (c[1] - col[1]) * m, col[2] + (c[2] - col[2]) * m];
 const wrapAngle = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 
 export class Globe {
@@ -322,8 +324,9 @@ export class Globe {
         // clouds
         if (vis.clouds > 0.05 && lit > 0.04) {
           const cv = this.sample(this.clouds, lon + this.cloudRot, lat);
-          if (cv > cloudCut + 0.08) col = lit > 0.45 ? CLOUD : CLOUD2;
-          else if (cv > cloudCut && dith > 0.1) col = CLOUD2;
+          // translucent: the surface shows through, thicker toward the middle of each cloud
+          if (cv > cloudCut + 0.08) col = mix(col, lit > 0.45 ? CLOUD : CLOUD2, cv > cloudCut + 0.16 ? 0.5 : 0.38);
+          else if (cv > cloudCut && dith > 0.1) col = mix(col, CLOUD2, 0.25);
         }
         // storm systems: spiral arms turning around an eye
         for (const s of storms) {
@@ -332,7 +335,7 @@ export class Globe {
           const sd = Math.sqrt(dl * dl * Math.cos(lat) ** 2 + dla * dla);
           if (sd < 0.38 && sd > 0.035) {
             const arm = Math.sin(s.spin * Math.atan2(dla, dl) * 2 + sd * 20 - t * 0.0012);
-            if (arm > 0.2 + sd * 1.6) col = lit > 0.4 ? CLOUD : CLOUD2;
+            if (arm > 0.2 + sd * 1.6) col = mix(col, lit > 0.4 ? CLOUD : CLOUD2, 0.7);
           }
         }
         // rim backlight: a thin, soft glow on the right edge (theme-colored), fading toward its ends
