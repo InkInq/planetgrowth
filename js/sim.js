@@ -46,7 +46,7 @@ export const MILESTONES = [
   { id: 'rain', title: 'First Rain', body: 'Warm air and thick haze meet. Water falls for the first time.', req: { heat: 300, atmos: 200 }, lat: -0.2, lon: 1.6 },
   { id: 'sea', title: 'First Sea', body: 'Rain pools in the great crater basin.', req: { water: 120 }, lat: -0.15, lon: 5.2 },
   { id: 'green', title: 'First Green', body: 'Life takes hold along the new shoreline.', req: { water: 260, life: 60 }, lat: 0.05, lon: 4.6 },
-  { id: 'bloom', title: 'Biomes Spread', body: 'Grasslands and forests cover the lowlands. Era II begins.', req: { life: 450, water: 600 }, lat: -0.5, lon: 2.9 },
+  { id: 'bloom', title: 'Biomes Spread', body: 'Grasslands and forests cover the lowlands. Era II begins.', req: { life: 350, water: 450 }, lat: -0.5, lon: 2.9 },
 ];
 
 export function eraOf(state) {
@@ -537,7 +537,7 @@ export function visuals(state, now) {
     dust: !!state.blights.atmos,
     cooling: !!state.blights.heat,
     wither: !!state.blights.life,
-    lights: state.milestones.bloom ? c((state.res.life - 450) / 800) : 0,
+    lights: state.milestones.bloom ? c((state.res.life - 350) / 800) : 0,
   };
 }
 
