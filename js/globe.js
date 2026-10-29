@@ -335,8 +335,14 @@ export class Globe {
             if (arm > 0.2 + sd * 1.6) col = lit > 0.4 ? CLOUD : CLOUD2;
           }
         }
-        // cyan rim backlight
-        if (g.d[i] > 0.93 && g.nx[i] > 0.3 && Math.abs(g.ny[i]) < 0.6) col = RIM;
+        // rim backlight: a thin, soft glow on the right edge (theme-colored), fading toward its ends
+        if (g.d[i] > 0.945 && g.nx[i] > 0.35) {
+          const f = 1 - Math.abs(g.ny[i]) / 0.6;
+          if (f > 0) {
+            const m = Math.min(1, f * 1.4) * (dith > -0.15 ? 0.6 : 0.32);
+            col = [col[0] + (RIM[0] - col[0]) * m, col[1] + (RIM[1] - col[1]) * m, col[2] + (RIM[2] - col[2]) * m];
+          }
+        }
         // the front of the ring passes in front of the planet
         if (rg > 0) {
           const rr = rg;
