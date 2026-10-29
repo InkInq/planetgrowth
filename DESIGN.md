@@ -14,7 +14,7 @@ You keep a single planet and evolve it through the eras. There are no new planet
 - **It takes 25% of every system's level.** This is a simple, fixed amount, so you can plan around it rather than manage it.
 - **Active blights make it worse:** a system with a blight on it at that moment loses more.
 - **Setbacks can undo milestones.** Cataclysms and blights can drop a system below what a milestone needs, and the milestone is lost until it's earned again. Keeping a buffer above your milestones before the month ends protects them.
-- Numbers: 25%, or 40% with an active blight. A milestone is lost below 80% of its requirement (each one checked on its own) and earned back at 100%. Eras can drop.
+- Numbers: 25%, or 40% with an active blight. A milestone is lost below 75% of its requirement (each one checked on its own) and earned back at 100%. Eras can drop. At 75% a cataclysm only takes a milestone if that system had a blight or had already slipped below the requirement (80% cost a steady player about 7 milestones a year, mostly ones earned days before the month ended; 75% costs about 3).
 - What a milestone unlocked stays unlocked after it's lost, so one setback can't snowball (losing First Rain doesn't stop Water forming).
 - A world younger than 14 days at its first month's end is spared, so nobody's first week ends in a cataclysm.
 - It plays on the globe (ice sweeping down, dust storms, the sea surging, land withering), then a report shows each system before and after, milestones lost, and Pop that survived. It's also kept in History.
@@ -58,6 +58,17 @@ What it shows:
 - **Pop stops growing around month 3**, when it reaches the Era I ceiling (6,200). Era II needs its own ceilings.
 - **A daily Stabilizer makes a system grow without limit** (dedicated Atmosphere reaches 28,000 versus about 5,000 for the others), because its Steady boosts never fade. Tested fix: a Stabilizer halves the fade instead of stopping it (8,600). Decided: the Stabilizer stays as it is.
 - **A two-week break costs nothing** once past Era I: with the app closed nothing runs, and the planet picks up where it was.
+
+### Eras II and III (built)
+| Era | Milestones (requirement) |
+| --- | --- |
+| II · Living World | Biomes Spread (Life 350, Water 450), Rivers Run (Water 650), Forests Rise (Life 1,000, Water 850), Weather Cycles (Heat 1,700, Atmosphere 1,300), First Creatures (Life 1,600, Water 1,100) |
+| III · Awakened World | First Settlements (Heat 2,000, Atmosphere 1,600, Water 1,300, Life 1,900), Cities Glow (Life 2,200, 5 goals), Moon Captured (Heat 2,700, 7 goals), Ships Cross the Seas (Water 1,900, 8 goals), Rings Gather (Atmosphere 2,400, 10 goals), First Satellite (Water 2,050, Life 2,600, 11 goals), Reach for the Stars (all four 2,200–3,000, 13 goals) |
+
+- Era III gates on monthly goals met, counted over the planet's life (they're never taken back). Focus time and streaks were left out so no feature is required.
+- Simulated pacing: a steady player reaches Era II at about 6 weeks, Era III at about 15, and the last milestone at about 33. Dedicated: all of it in about 19 weeks. Casual players (about 40% of tasks) reach Rivers Run around week 23 and level off there; accepted as an honest reading of their pace.
+- Every milestone has its own look on the globe, removed if it's lost. In Era III, ships, planes and satellites grow with Pop, and active blights distort their region. City lights moved from Biomes Spread to First Settlements.
+- Pop ceilings: Era I 6,200 in all, Era II +10,000, Era III +32,000.
 
 ## Pinned for later
 

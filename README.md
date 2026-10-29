@@ -28,7 +28,7 @@ A new world opens with a welcome card and six First Steps: wake the crust, make 
 | --- | --- | --- |
 | Physical | Crust · Heat | Ice caps melt, terrain warms |
 | Mental | Atmosphere | Haze, then cloud bands |
-| Social / Creative | Life | Green spreads, then city lights |
+| Social / Creative | Life | Green spreads, then forests, herds and cities |
 
 Water isn't a category. It forms on its own once Heat and Atmosphere are balanced enough to bring the First Rain.
 
@@ -55,7 +55,7 @@ Missing two or more daily tasks in a category spawns a **blight** (Deep Cooling,
 When a month ends, a cataclysm strikes: an Ice Age, Dust Age, Great Flood or Plague, picked at random. It plays out on the globe, then a report shows what it took.
 
 - It takes 25% of every system, and 40% from a system with an active blight.
-- A milestone is lost when a system falls below 80% of what it needs, from a cataclysm or a blight. It's earned back at the full amount. What it unlocked (Water forming, Life at full speed) stays unlocked, and the era can drop.
+- A milestone is lost when a system falls below 75% of what it needs, from a cataclysm or a blight. It's earned back at the full amount. What it unlocked (Water forming, Life at full speed) stays unlocked, and the era can drop.
 - The World panel's Month's End card shows the days left, which milestones would be lost if it struck today, and the level each system needs to keep them.
 - A new world is spared if it's less than 14 days old when its first month ends.
 
@@ -101,11 +101,19 @@ Saves stay on the device. Export the world on one device and Import it on the ot
 
 Milestones, goals, blights, recoveries, lost milestones and cataclysms appear as nodes on the planet. Tap one to see when it happened and which tasks caused it or can fix it.
 
-**Milestones (Era I → II)**
+**Milestones and eras**
 
-Polar Frost Melts → Haze Thickens → First Rain → First Sea → First Green → Biomes Spread (Era II)
+Seventeen milestones, earned in order. Each one changes how the planet looks, and goes away if the milestone is lost.
 
-A forecast under the globe estimates when the next milestone lands at your current pace.
+| Era | Milestones | On the globe |
+| --- | --- | --- |
+| I · Cold Desert | Polar Frost Melts, Haze Thickens, First Rain, First Sea, First Green | Ice melts, haze and clouds, the sea fills, green on the shores |
+| II · Living World | Biomes Spread, Rivers Run, Forests Rise, Weather Cycles, First Creatures | Grasslands, rivers, dark forests, turning storms, grazing herds |
+| III · Awakened World | First Settlements, Cities Glow, Moon Captured, Ships Cross the Seas, Rings Gather, First Satellite, Reach for the Stars | Lights at dusk and night, cities by day, a moon, ships, a ring, satellites, rocket launches |
+
+Era III milestones also need monthly goals met (5 to 13, counted over the planet's life). In Era III, ships, planes and satellites grow in number with Pop, and an active blight distorts its region of the globe: the ground ripples and red scan lines flicker through it.
+
+A forecast under the globe estimates when the next milestone lands at your current pace, and how many more goals it needs.
 
 ## Files
 

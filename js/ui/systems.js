@@ -1,7 +1,7 @@
 // The header (world name, era, streak) and the World panel: planet systems and the milestone road.
 import {
   CATS, SYSTEMS, MILESTONES, BLIGHTS, HOUR, DAY, rates, nextMilestone, milestoneProgress, forecast, eraOf, stats, fmtDuration,
-  cataclysmPreview, popCap, unlocked, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED,
+  cataclysmPreview, popCap, unlocked, reqLabel, goalsMet, ERAS, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED,
 } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save } from './store.js';
@@ -50,26 +50,28 @@ function sysCard(k, now, r, next, risk) {
 function renderRoad(now) {
   const next = nextMilestone(state);
   const fc = forecast(state, now);
-  $('#road').innerHTML = MILESTONES.map((m) => {
+  const gm = goalsMet(state);
+  $('#road').innerHTML = MILESTONES.map((m, i) => {
     const at = state.milestones[m.id];
-    const need = Object.entries(m.req).map(([k, v]) => sysName(k) + ' ' + v).join(' + ');
-    const era = m.id === 'bloom' ? '<span class="era-tag">ERA II</span>' : '';
+    // goals show how many you have so far: "5 goals met (3/5)"
+    const need = Object.entries(m.req).map(([k, v]) => reqLabel(k, v) + (k === 'goals' && !at && gm < v ? ` (${gm}/${v})` : '')).join(' + ');
+    const head = i === 0 || MILESTONES[i - 1].era !== m.era ? `<li class="road-era"><span>ERA ${m.era}</span>${ERAS[m.era].toUpperCase()}</li>` : '';
     const lostAt = !at && state.lost?.[m.id];
     const lostLine = lostAt ? `<span class="d lost">Lost ${fmtDate(lostAt)}</span>` : '';
     if (at) {
-      return `<li class="ms done"><span class="ms-node">${icon('check')}</span><span class="ms-body">
-        <span class="t">${esc(m.title)}${era}</span><span class="d">Reached ${fmtDate(at)}</span></span></li>`;
+      return head + `<li class="ms done"><span class="ms-node">${icon('check')}</span><span class="ms-body">
+        <span class="t">${esc(m.title)}</span><span class="d">Reached ${fmtDate(at)}</span></span></li>`;
     }
     if (m === next) {
       const p = milestoneProgress(state, m);
       const eta = fc.stalled ? `Stalled: ${sysName(fc.stalled)} isn't growing` : fc.hours != null ? `~${fmtDuration(fc.hours)} at this pace` : '';
-      return `<li class="ms current"><span class="ms-node">${icon('star')}</span><span class="ms-body">
-        <span class="t">${esc(m.title)}${era}<span class="pct">${Math.floor(p * 100)}%</span></span>
+      return head + `<li class="ms current"><span class="ms-node">${icon('star')}</span><span class="ms-body">
+        <span class="t">${esc(m.title)}<span class="pct">${Math.floor(p * 100)}%</span></span>
         <span class="meter"><span class="fill" style="width:${p * 100}%"></span></span>
         ${lostLine}<span class="d">Needs ${need}</span><span class="d eta${fc.stalled ? ' stalled' : ''}">${eta}</span></span></li>`;
     }
-    return `<li class="ms"><span class="ms-node">${icon('lock')}</span><span class="ms-body">
-      <span class="t">${esc(m.title)}${era}</span>${lostLine}<span class="d">Needs ${need}</span></span></li>`;
+    return head + `<li class="ms"><span class="ms-node">${icon('lock')}</span><span class="ms-body">
+      <span class="t">${esc(m.title)}</span>${lostLine}<span class="d">Needs ${need}</span></span></li>`;
   }).join('');
 }
 

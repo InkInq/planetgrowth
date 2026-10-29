@@ -1,6 +1,9 @@
 // Pixel globe renderer: a low-res sphere sampled from lat/lon textures, scaled up crisply.
+// The buffer is wider than the globe's frame on screen (VIEW of RES pixels), leaving room around
+// the planet for its ring, moon and satellites.
 
-const RES = 112; // pixels across the globe buffer (including halo margin)
+const VIEW = 112; // buffer pixels that map onto the globe's frame on screen
+const RES = 160; // buffer pixels across, including the space around the frame
 const R = 48; // planet radius in buffer pixels
 const TW = 256, TH = 128; // texture size (lon x lat)
 
@@ -9,15 +12,27 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => 
 const DESERT = ['#24182f', '#3a2640', '#553650', '#734c60', '#936774', '#b38483', '#cfa594', '#e6c4aa'];
 const SEA = ['#0f1a3a', '#152a55', '#1d3f73', '#2b5b94', '#3f7fb3'];
 const GREEN = ['#12301f', '#1c4a2a', '#2c6b37', '#46914a', '#78b85c'];
+const GRASS = ['#2c4220', '#45602a', '#647f36', '#88a045', '#adc060']; // grasslands, from Biomes Spread
+const FOREST = ['#0a1f13', '#10301c', '#174226', '#205633', '#2d6e3f']; // from Forests Rise
 const ICE = ['#5a6488', '#9aa3c2', '#c7cfe6', '#eef1fb'];
 const NIGHT = ['#0d0819', '#150f26', '#1b1330'];
+const RING = ['#6f6478', '#a3947f', '#cbbca0', '#e9dec6'];
+const MOON = ['#2a2438', '#4c4560', '#7a7290', '#aaa2bf', '#d8d2e6'];
 
 function hex(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
 const P = (arr) => arr.map(hex);
-const pDesert = P(DESERT), pSea = P(SEA), pGreen = P(GREEN), pIce = P(ICE), pNight = P(NIGHT);
+const pDesert = P(DESERT), pSea = P(SEA), pGreen = P(GREEN), pGrass = P(GRASS), pForest = P(FOREST);
+const pIce = P(ICE), pNight = P(NIGHT), pRing = P(RING), pMoon = P(MOON);
 const DUST = hex('#e8c7a8'), DUST2 = hex('#c9a088'), CLOUD = hex('#e8e0ff'), CLOUD2 = hex('#b8acd8');
-const LIGHT = hex('#ffd27a');
+const LIGHT = hex('#ffd27a'), LIGHT2 = hex('#ffefc0');
 const ROT = hex('#5b3a2e'), ROT2 = hex('#7a4a33'); // withered land during a plague
+const RIVER = hex('#3f7fb3'), RIVER2 = hex('#2b5b94');
+const CITY = hex('#8d879c'), CITY2 = hex('#b4aec2'); // cities seen by day
+const HERD = hex('#efe2c0'), HERD2 = hex('#b9a47e'); // light specks on the green, like grazing herds
+const SHIP = hex('#f2f6ff'), PLANE = hex('#ffffff'), BLINK = hex('#ff5a5a');
+const SAT = hex('#c9d2e6'), PANEL = hex('#5a7fd0');
+const FLAME = [hex('#ffffff'), hex('#fff1b0'), hex('#ffc060'), hex('#ff8040'), hex('#b04a3a')];
+const BLIGHT = hex('#ff3d6e');
 
 function hash(x, y, s) {
   let h = x * 374761393 + y * 668265263 + s * 2147483647;
@@ -63,6 +78,13 @@ const CRATERS = [
   { lon: 0.3, lat: -0.35, r: 0.13 },
 ];
 
+// Fixed starting points for moving things (herds, ships, planes), so they're the same every visit.
+const seeds = (n, s) => Array.from({ length: n }, (_, i) => ({ a: hash(i, 1, s), b: hash(i, 2, s), c: hash(i, 3, s) }));
+const HERDS = seeds(14, 11), SHIPS = seeds(16, 23), PLANES = seeds(12, 37), SATS = seeds(5, 51);
+const LAUNCH = { lat: -0.05, lon: 1.9 }; // the launch site (Reach for the Stars)
+
+const wrapAngle = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+
 export class Globe {
   constructor(canvas) {
     this.canvas = canvas;
@@ -78,12 +100,15 @@ export class Globe {
     this.cloudRot = 0;
     this.height = fbm(TW, TH, 3, [32, 16, 8], [0.55, 0.3, 0.15]);
     this.clouds = fbm(TW, TH, 41, [24, 10, 5], [0.5, 0.35, 0.15]);
+    this.riverTex = fbm(TW, TH, 77, [22, 9], [0.7, 0.3]);
+    this.forestTex = fbm(TW, TH, 91, [12, 5], [0.7, 0.3]);
     this.applyCraters();
     this.buildSeaLevels();
     // precompute sphere geometry
     const n = RES * RES;
-    this.geo = { inside: new Uint8Array(n), lonOff: new Float32Array(n), lat: new Float32Array(n), shade: new Float32Array(n), d: new Float32Array(n), nx: new Float32Array(n), ny: new Float32Array(n) };
+    this.geo = { inside: new Uint8Array(n), lonOff: new Float32Array(n), lat: new Float32Array(n), shade: new Float32Array(n), d: new Float32Array(n), nx: new Float32Array(n), ny: new Float32Array(n), ring: new Float32Array(n) };
     const c = RES / 2;
+    const ca = Math.cos(-0.32), sa = Math.sin(-0.32);
     for (let y = 0; y < RES; y++) {
       for (let x = 0; x < RES; x++) {
         const i = y * RES + x;
@@ -92,6 +117,10 @@ export class Globe {
         this.geo.d[i] = Math.sqrt(d2);
         this.geo.nx[i] = nx;
         this.geo.ny[i] = ny;
+        // the ring: a tilted ellipse around the planet; its sign says front (+) or back (−)
+        const u = nx * ca + ny * sa, v = (-nx * sa + ny * ca) / 0.26;
+        const rr = Math.sqrt(u * u + v * v);
+        this.geo.ring[i] = rr >= 1.3 && rr <= 1.62 && !(rr > 1.45 && rr < 1.49) ? (v >= 0 ? rr : -rr) : 0;
         if (d2 <= 1) {
           const z = Math.sqrt(1 - d2);
           this.geo.inside[i] = 1;
@@ -161,14 +190,30 @@ export class Globe {
     return tex[Math.floor(v * TH) * TW + Math.floor(u * TW)];
   }
 
-  // Project lat/lon to unit screen coords (0..1) and visibility.
+  // Project lat/lon to the globe frame's coords (0..1 across the frame) and visibility (z > 0 faces you).
   project(lat, lon) {
     const rel = lon - this.rot;
     const x = Math.cos(lat) * Math.sin(rel);
     const y = -Math.sin(lat);
     const z = Math.cos(lat) * Math.cos(rel);
-    const s = R / RES;
+    const s = R / VIEW;
     return { x: 0.5 + x * s, y: 0.5 + y * s, z };
+  }
+
+  // A point on the surface in buffer pixels, with whether it faces you and how lit it is.
+  surfacePx(lat, lon) {
+    const rel = lon - this.rot;
+    const z = Math.cos(lat) * Math.cos(rel);
+    const x = Math.round(RES / 2 - 0.5 + Math.cos(lat) * Math.sin(rel) * R);
+    const y = Math.round(RES / 2 - 0.5 - Math.sin(lat) * R);
+    const i = y * RES + x;
+    return { x, y, z, i, lit: z > 0 && this.geo.inside[i] ? this.geo.shade[i] : -1 };
+  }
+
+  put(x, y, col, a = 255) {
+    if (x < 0 || y < 0 || x >= RES || y >= RES) return;
+    const o = (y * RES + x) * 4, d = this.img.data;
+    d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = a;
   }
 
   render(vis, t) {
@@ -183,37 +228,76 @@ export class Globe {
     // Water fills the basins from the deepest point up: dry at 0, about 55% ocean at full, leaving land for Life.
     const seaLevel = this.seaLevelFor(Math.min(0.97, vis.sea * 0.55 + cs('flood') * 0.6));
     const plague = cs('plague'), dustAll = cs('dust');
-    const cloudCut = 1 - vis.clouds * 0.55;
+    const cloudCut = 1 - vis.clouds * 0.4; // at most about a fifth of the sky is cloud, so the surface stays readable
+    const greenTop = vis.green * (vis.biomes ? 0.42 : 0.32); // how far up from the shore green reaches
+    const lightCut = 0.8 - (vis.lights || 0) * 0.18;
+    const blights = vis.blightAt || [];
+    const glitchRow = Math.floor(t / 90);
+    // storm systems (Weather Cycles): two cyclones drifting in opposite directions
+    const storms = vis.weather ? [{ lon: 3.4 + t * 0.00002, lat: 0.55, spin: 1 }, { lon: 0.8 - t * 0.000015, lat: -0.6, spin: -1 }] : [];
     const dustC = { lon: 0.6, lat: 0.12 };
     for (let y = 0; y < RES; y++) {
       for (let x = 0; x < RES; x++) {
         const i = y * RES + x;
         const o = i * 4;
         const dith = BAYER[(y & 3) * 4 + (x & 3)];
+        const rg = vis.ring ? g.ring[i] : 0;
         if (!g.inside[i]) {
+          if (rg) { // the ring, front and back, where the planet doesn't hide it
+            const rr = Math.abs(rg);
+            const k = rr > 1.55 ? (dith > -0.2 ? 1 : -1) : rr > 1.49 ? 2 : rr > 1.38 ? 3 : 1;
+            if (k >= 0) {
+              const col = pRing[rg < 0 ? Math.max(0, k - 1) : k];
+              data[o] = col[0]; data[o + 1] = col[1]; data[o + 2] = col[2]; data[o + 3] = 235;
+              continue;
+            }
+          }
           const d = g.d[i];
           const a = d < 1.05 ? 0.16 + vis.clouds * 0.2 : d < 1.1 ? 0.06 + vis.clouds * 0.1 : 0;
           data[o] = HALO[0]; data[o + 1] = HALO[1]; data[o + 2] = HALO[2];
           data[o + 3] = a > 0 && dith > -0.3 ? Math.round(a * 255) : 0;
           continue;
         }
-        const lat = g.lat[i];
-        const lon = g.lonOff[i] + this.rot;
+        let lat = g.lat[i];
+        let lon = g.lonOff[i] + this.rot;
+        // a blight warps its region: the ground ripples, and scan lines flicker through it
+        let warp = 0;
+        for (const b of blights) {
+          const dl = wrapAngle(lon - b.lon), dla = lat - b.lat;
+          const sd = Math.sqrt(dl * dl * Math.cos(lat) ** 2 + dla * dla);
+          if (sd < 0.7) warp = Math.max(warp, 1 - sd / 0.7);
+        }
+        if (warp > 0) {
+          lon += Math.sin(y * 0.9 + t * 0.006) * 0.07 * warp;
+          lat += Math.sin(x * 0.7 + t * 0.004) * 0.03 * warp;
+        }
         const shade = g.shade[i];
         const h = this.sample(this.height, lon, lat) - 0.5;
         let col;
         const lit = shade + dith * 0.18;
+        const land = h >= seaLevel;
+        const cityHere = vis.lights > 0 && !plague && land && h > seaLevel + 0.02 && this.sample(this.clouds, lon * 3, lat * 3) > lightCut;
         if (lit < 0.04) {
           col = pNight[lit < -0.25 ? 0 : lit < -0.08 ? 1 : 2];
-          // city lights on the night side in later eras
-          if (vis.lights > 0 && !plague && h > seaLevel + 0.02 && this.sample(this.clouds, lon * 3, lat * 3) > 1 - vis.lights * 0.35) col = LIGHT;
+          // settlements and cities light up the night side
+          if (cityHere) col = this.sample(this.clouds, lon * 6, lat * 6) > 0.62 ? LIGHT2 : LIGHT;
         } else if (Math.abs(lat) > iceLat + h * 0.25 + (vis.cooling ? -0.15 : 0)) {
           col = pIce[Math.max(0, Math.min(3, Math.floor(lit * 4.4)))];
-        } else if (h < seaLevel) {
+        } else if (!land) {
           const depth = (seaLevel - h) * 4;
           col = pSea[Math.max(0, Math.min(4, Math.floor(lit * 5 - depth * 1.2 + 0.5)))];
-        } else if (vis.green > 0 && h < seaLevel + vis.green * 0.32 && Math.abs(lat) < 1.1 && !(vis.wither && dith > 0)) {
-          col = plague > dith + 0.5 ? (lit > 0.4 ? ROT2 : ROT) : pGreen[Math.max(0, Math.min(4, Math.floor(lit * 5 + h * 2)))];
+        } else if (vis.rivers > 0 && h < seaLevel + 0.4 && Math.abs(this.sample(this.riverTex, lon, lat) - 0.5) < 0.014 + vis.rivers * 0.012) {
+          col = lit > 0.45 ? RIVER : RIVER2; // rivers wind down to the sea
+        } else if (cityHere && lit < 0.16) {
+          col = LIGHT; // lights come on at dusk
+        } else if (vis.cities && cityHere && dith > -0.25) {
+          col = lit > 0.5 ? CITY2 : CITY; // cities by day
+        } else if (vis.green > 0 && h < seaLevel + greenTop && Math.abs(lat) < 1.1 && !(vis.wither && dith > 0)) {
+          const shadeIx = Math.max(0, Math.min(4, Math.floor(lit * 5 + h * 2)));
+          if (plague > dith + 0.5) col = lit > 0.4 ? ROT2 : ROT;
+          else if (vis.forest > 0 && this.sample(this.forestTex, lon, lat) > 0.66 - vis.forest * 0.2) col = pForest[shadeIx];
+          else if (vis.biomes && h > seaLevel + greenTop * 0.55) col = pGrass[shadeIx];
+          else col = pGreen[shadeIx];
         } else if (plague > 0.3 && h < seaLevel + 0.12 && dith > 0.5 - plague) {
           col = lit > 0.4 ? ROT2 : ROT; // the shores rot too, so a plague shows even before First Green
         } else {
@@ -222,7 +306,7 @@ export class Globe {
         }
         // dust storm swirl
         if (vis.dust && lit > 0.04) {
-          let dl = lon - dustC.lon; dl = ((dl + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+          const dl = wrapAngle(lon - dustC.lon);
           const dla = lat - dustC.lat;
           const sd = Math.sqrt(dl * dl * Math.cos(lat) ** 2 + dla * dla);
           if (sd < 0.55) {
@@ -241,17 +325,138 @@ export class Globe {
           if (cv > cloudCut + 0.08) col = lit > 0.45 ? CLOUD : CLOUD2;
           else if (cv > cloudCut && dith > 0.1) col = CLOUD2;
         }
+        // storm systems: spiral arms turning around an eye
+        for (const s of storms) {
+          if (lit < 0.04) break;
+          const dl = wrapAngle(lon - s.lon), dla = lat - s.lat;
+          const sd = Math.sqrt(dl * dl * Math.cos(lat) ** 2 + dla * dla);
+          if (sd < 0.38 && sd > 0.035) {
+            const arm = Math.sin(s.spin * Math.atan2(dla, dl) * 2 + sd * 20 - t * 0.0012);
+            if (arm > 0.2 + sd * 1.6) col = lit > 0.4 ? CLOUD : CLOUD2;
+          }
+        }
         // cyan rim backlight
         if (g.d[i] > 0.93 && g.nx[i] > 0.3 && Math.abs(g.ny[i]) < 0.6) col = RIM;
+        // the front of the ring passes in front of the planet
+        if (rg > 0) {
+          const rr = rg;
+          const k = rr > 1.55 ? (dith > -0.2 ? 1 : -1) : rr > 1.49 ? 2 : rr > 1.38 ? 3 : 1;
+          if (k >= 0) col = pRing[k];
+        }
+        // blight scan lines: every few rows flicker toward red
+        if (warp > 0.25 && (y + glitchRow) % 7 === 0 && dith > -0.3) {
+          const m = 0.5 * warp;
+          col = [col[0] + (BLIGHT[0] - col[0]) * m, col[1] + (BLIGHT[1] - col[1]) * m, col[2] + (BLIGHT[2] - col[2]) * m];
+        }
         data[o] = col[0]; data[o + 1] = col[1]; data[o + 2] = col[2]; data[o + 3] = 255;
       }
     }
+    this.drawLife(vis, t, seaLevel, greenTop);
+    this.drawTraffic(vis, t, seaLevel);
+    this.drawSpace(vis, t);
     this.bctx.putImageData(this.img, 0, 0);
     const ctx = this.ctx;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.drawImage(this.buf, 0, 0, this.canvas.width, this.canvas.height);
   }
+
+  // herds wandering the green plains (First Creatures)
+  drawLife(vis, t, seaLevel, greenTop) {
+    for (let n = 0; n < (vis.creatures || 0); n++) {
+      const s = HERDS[n];
+      const lat = (s.a - 0.5) * 1.5 + 0.12 * Math.sin(t * 0.00004 + n * 1.7);
+      const lon = s.b * Math.PI * 2 + 0.25 * Math.sin(t * 0.00005 + n);
+      const h = this.sample(this.height, lon, lat) - 0.5;
+      if (h < seaLevel || h > seaLevel + greenTop) continue;
+      const p = this.surfacePx(lat, lon);
+      if (p.lit < 0.1) continue;
+      this.put(p.x, p.y, HERD);
+      this.put(p.x + 1, p.y, HERD2);
+      if (n % 2) this.put(p.x, p.y + 1, HERD2);
+    }
+  }
+
+  // ships on the seas and planes in the air; how many grows with Pop
+  drawTraffic(vis, t, seaLevel) {
+    const blink = Math.floor(t / 500) % 2 === 0;
+    for (let n = 0; n < (vis.ships || 0); n++) {
+      const s = SHIPS[n];
+      const lat = (s.a - 0.5) * 1.4;
+      const lon = s.b * Math.PI * 2 + t * 0.000012 * (s.c > 0.5 ? 1 : -1);
+      if (this.sample(this.height, lon, lat) - 0.5 >= seaLevel) continue; // in port
+      const p = this.surfacePx(lat, lon);
+      if (p.z < 0.15) continue;
+      if (p.lit < 0.04) { this.put(p.x, p.y, LIGHT); continue; }
+      this.put(p.x, p.y, SHIP);
+      this.put(p.x + (s.c > 0.5 ? -1 : 1), p.y, SHIP, 120); // wake
+    }
+    for (let n = 0; n < (vis.planes || 0); n++) {
+      const s = PLANES[n];
+      const dir = s.c > 0.5 ? 1 : -1;
+      const at = (tt) => {
+        const lon = s.b * Math.PI * 2 + tt * 0.00005 * dir;
+        return this.surfacePx((s.a - 0.5) * 1.2 + 0.3 * Math.sin(lon * 1.3 + n), lon);
+      };
+      const p = at(t);
+      if (p.z < 0.2) continue;
+      if (p.lit < 0.04) { if (blink) this.put(p.x, p.y, n % 2 ? BLINK : PLANE); continue; }
+      const q = at(t - 700), r = at(t - 1400);
+      this.put(r.x, r.y, PLANE, 70); // contrail
+      this.put(q.x, q.y, PLANE, 140);
+      this.put(p.x, p.y, PLANE);
+    }
+  }
+
+  // the moon, satellites and rocket launches
+  drawSpace(vis, t) {
+    const c = RES / 2 - 0.5;
+    const behind = (x, y, z) => z < 0 && (x - c) ** 2 + (y - c) ** 2 <= R * R;
+    if (vis.moon) {
+      const th = t * 0.00011;
+      const mx = c + Math.cos(th) * R * 1.5, my = c - 6 + Math.sin(th) * R * 0.3, mz = Math.sin(th);
+      const mr = 5;
+      for (let y = -mr; y <= mr; y++) {
+        for (let x = -mr; x <= mr; x++) {
+          const d2 = (x * x + y * y) / (mr * mr);
+          if (d2 > 1) continue;
+          const px = Math.round(mx + x), py = Math.round(my + y);
+          if (behind(px, py, mz)) continue;
+          const nz = Math.sqrt(1 - d2), nx = x / mr, ny = y / mr;
+          let v = -0.55 * nx - 0.45 * ny + 0.72 * nz + BAYER[(py & 3) * 4 + (px & 3)] * 0.2;
+          if (hash(x + 9, y + 9, 5) > 0.82) v -= 0.25; // craters
+          this.put(px, py, pMoon[Math.max(0, Math.min(4, Math.floor((v + 0.25) * 4)))]);
+        }
+      }
+    }
+    const blink = Math.floor(t / 600) % 2 === 0;
+    for (let n = 0; n < (vis.satellites || 0); n++) {
+      const s = SATS[n];
+      const ph = t * (0.0003 + s.a * 0.00025) + s.b * 6.28;
+      const inc = (s.c - 0.5) * 1.6, ro = R * (1.12 + s.a * 0.14);
+      const x = Math.round(c + Math.cos(ph) * ro), y = Math.round(c + Math.sin(ph) * Math.sin(inc) * ro);
+      const z = Math.sin(ph) * Math.cos(inc);
+      if (behind(x, y, z)) continue;
+      this.put(x - 1, y, PANEL); this.put(x, y, SAT); this.put(x + 1, y, PANEL);
+      if (blink && n % 2 === 0) this.put(x, y - 1, BLINK);
+    }
+    if (vis.launches) {
+      const p = ((t / 1000) % 16) / 2.6; // a launch every 16 seconds, climbing for 2.6
+      if (p < 1) {
+        const site = this.surfacePx(LAUNCH.lat, LAUNCH.lon);
+        if (site.z > 0.25) {
+          let dx = site.x - c, dy = site.y - c - 6;
+          const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+          const dist = p * p * 34;
+          for (let k = 0; k < 9; k++) {
+            const back = Math.max(0, dist - k * 1.4);
+            this.put(Math.round(site.x + dx * back), Math.round(site.y + dy * back), FLAME[Math.min(4, k >> 1)], 255 - k * 20);
+          }
+        }
+      }
+    }
+  }
 }
 
 export const GLOBE_RES = RES;
+export const GLOBE_VIEW = VIEW;

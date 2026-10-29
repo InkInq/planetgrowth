@@ -39,20 +39,43 @@ export const BLIGHTS = {
   life: { title: 'Withering', body: 'Missed Social / Creative tasks. Fragile life is fading.', lat: -0.3, lon: 4.1 },
 };
 
-// Milestones in order. req: resource thresholds.
+// Milestones in order. req: system levels, plus `goals` (monthly goals met, counted over the planet's life).
+// era: the era a milestone belongs to; the first milestone of an era starts it.
 export const MILESTONES = [
-  { id: 'frost', title: 'Polar Frost Melts', body: 'Heat has begun to melt the polar caps.', req: { heat: 120 }, lat: 1.25, lon: 0.3 },
-  { id: 'haze', title: 'Haze Thickens', body: 'The first thin clouds drift over the dunes.', req: { atmos: 80 }, lat: 0.4, lon: 3.3 },
-  { id: 'rain', title: 'First Rain', body: 'Warm air and thick haze meet. Water falls for the first time.', req: { heat: 300, atmos: 200 }, lat: -0.2, lon: 1.6 },
-  { id: 'sea', title: 'First Sea', body: 'Rain pools in the great crater basin.', req: { water: 120 }, lat: -0.15, lon: 5.2 },
-  { id: 'green', title: 'First Green', body: 'Life takes hold along the new shoreline.', req: { water: 260, life: 60 }, lat: 0.05, lon: 4.6 },
-  { id: 'bloom', title: 'Biomes Spread', body: 'Grasslands and forests cover the lowlands. Era II begins.', req: { life: 350, water: 450 }, lat: -0.5, lon: 2.9 },
+  { id: 'frost', era: 'I', title: 'Polar Frost Melts', body: 'Heat has begun to melt the polar caps.', req: { heat: 120 }, lat: 1.25, lon: 0.3 },
+  { id: 'haze', era: 'I', title: 'Haze Thickens', body: 'The first thin clouds drift over the dunes.', req: { atmos: 80 }, lat: 0.4, lon: 3.3 },
+  { id: 'rain', era: 'I', title: 'First Rain', body: 'Warm air and thick haze meet. Water falls for the first time.', req: { heat: 300, atmos: 200 }, lat: -0.2, lon: 1.6 },
+  { id: 'sea', era: 'I', title: 'First Sea', body: 'Rain pools in the great crater basin.', req: { water: 120 }, lat: -0.15, lon: 5.2 },
+  { id: 'green', era: 'I', title: 'First Green', body: 'Life takes hold along the new shoreline.', req: { water: 260, life: 60 }, lat: 0.05, lon: 4.6 },
+  { id: 'bloom', era: 'II', title: 'Biomes Spread', body: 'Grasslands and forests cover the lowlands. Era II begins.', req: { life: 350, water: 450 }, lat: -0.5, lon: 2.9 },
+  { id: 'rivers', era: 'II', title: 'Rivers Run', body: 'Rain finds its way downhill, and rivers carve the lowlands.', req: { water: 650 }, lat: 0.3, lon: 0.9 },
+  { id: 'forests', era: 'II', title: 'Forests Rise', body: 'Dense forests grow along the rivers.', req: { life: 1000, water: 850 }, lat: -0.35, lon: 4.1 },
+  { id: 'weather', era: 'II', title: 'Weather Cycles', body: 'Storms and seasons settle into steady cycles.', req: { heat: 1700, atmos: 1300 }, lat: 0.6, lon: 2.2 },
+  { id: 'creatures', era: 'II', title: 'First Creatures', body: 'The first creatures roam the plains.', req: { life: 1600, water: 1100 }, lat: -0.1, lon: 3.6 },
+  { id: 'settle', era: 'III', title: 'First Settlements', body: 'Small settlements light up by the water. Era III begins.', req: { heat: 2000, atmos: 1600, water: 1300, life: 1900 }, lat: 0.15, lon: 5.8 },
+  { id: 'cities', era: 'III', title: 'Cities Glow', body: 'Cities spread, and the night side glows.', req: { life: 2200, goals: 5 }, lat: 0.35, lon: 1.3 },
+  { id: 'moon', era: 'III', title: 'Moon Captured', body: 'A wandering moon is caught in orbit.', req: { heat: 2700, goals: 7 }, lat: 0.9, lon: 4.9 },
+  { id: 'voyages', era: 'III', title: 'Ships Cross the Seas', body: 'Ships sail between the continents.', req: { water: 1900, goals: 8 }, lat: -0.3, lon: 5.4 },
+  { id: 'ring', era: 'III', title: 'Rings Gather', body: 'Dust and ice gather into a ring around the world.', req: { atmos: 2400, goals: 10 }, lat: -0.8, lon: 0.4 },
+  { id: 'sat', era: 'III', title: 'First Satellite', body: 'The first satellite blinks into orbit.', req: { water: 2050, life: 2600, goals: 11 }, lat: 0.5, lon: 3.0 },
+  { id: 'stars', era: 'III', title: 'Reach for the Stars', body: 'Rockets rise toward the stars.', req: { heat: 3000, atmos: 2600, water: 2200, life: 2800, goals: 13 }, lat: -0.05, lon: 1.9 },
 ];
 
+export const goalsMet = (state) => state.goals.filter((g) => g.done).length;
+// how much of one requirement you have: a system's level, or goals met
+export const reqHave = (state, k) => (k === 'goals' ? goalsMet(state) : state.res[k]);
+const sysWord = { heat: 'Heat', atmos: 'Atmosphere', water: 'Water', life: 'Life' };
+export const reqLabel = (k, v) => (k === 'goals' ? `${v} goal${v === 1 ? '' : 's'} met` : `${sysWord[k]} ${v}`);
+export const reqText = (m) => Object.entries(m.req).map(([k, v]) => reqLabel(k, v)).join(' + ');
+// only system levels can fall; goals met are never taken back
+const levelKeys = (m) => Object.keys(m.req).filter((k) => k !== 'goals');
+
+export const ERAS = { I: 'Cold Desert', II: 'Living World', III: 'Awakened World' };
 export function eraOf(state) {
-  return state.milestones.bloom ? { n: 'II', name: 'Living World' }
+  return state.milestones.settle ? { n: 'III', name: ERAS.III }
+    : state.milestones.bloom ? { n: 'II', name: ERAS.II }
     : state.milestones.rain ? { n: 'I', name: 'Thawing World' }
-    : { n: 'I', name: 'Cold Desert' };
+    : { n: 'I', name: ERAS.I };
 }
 
 export function dayKey(t) {
@@ -150,7 +173,7 @@ function checkMilestones(state, t, events) {
   loseMilestones(state, t, events);
   for (const m of MILESTONES) {
     if (state.milestones[m.id]) continue;
-    const ok = Object.keys(m.req).every((k) => state.res[k] >= m.req[k]);
+    const ok = Object.keys(m.req).every((k) => reqHave(state, k) >= m.req[k]);
     if (!ok) break; // strictly in order
     state.milestones[m.id] = t;
     const back = !!state.lost?.[m.id];
@@ -163,19 +186,18 @@ function checkMilestones(state, t, events) {
 
 // A milestone is lost when a system it needs falls below MILESTONE_KEEP of its requirement. Each is checked
 // on its own (they depend on different systems); earning stays in order, so a lost one is the next to earn back,
-// and that needs the full requirement.
-export const MILESTONE_KEEP = 0.8;
-const sysWord = { heat: 'Heat', atmos: 'Atmosphere', water: 'Water', life: 'Life' };
+// and that needs the full requirement. At 75%, a month's-end cataclysm (−25%) only takes a milestone if that
+// system was already below it, or had a blight.
+export const MILESTONE_KEEP = 0.75;
 function loseMilestones(state, t, events) {
   for (let i = MILESTONES.length - 1; i >= 0; i--) {
     const m = MILESTONES[i];
     if (!state.milestones[m.id]) continue;
-    const short = Object.keys(m.req).filter((k) => state.res[k] < m.req[k] * MILESTONE_KEEP);
+    const short = levelKeys(m).filter((k) => state.res[k] < m.req[k] * MILESTONE_KEEP);
     if (!short.length) continue;
     delete state.milestones[m.id];
     (state.lost ||= {})[m.id] = t;
-    const need = Object.entries(m.req).map(([k, v]) => sysWord[k] + ' ' + v).join(' + ');
-    const ev = { id: uid(), kind: 'lost', title: m.title + ' Lost', body: `${short.map((k) => sysWord[k]).join(' and ')} fell below ${MILESTONE_KEEP * 100}% of what it needs. Earn it back at ${need}.`, t, lat: m.lat, lon: m.lon, links: [] };
+    const ev = { id: uid(), kind: 'lost', title: m.title + ' Lost', body: `${short.map((k) => sysWord[k]).join(' and ')} fell below ${MILESTONE_KEEP * 100}% of what it needs. Earn it back at ${reqText(m)}.`, t, lat: m.lat, lon: m.lon, links: [] };
     state.events.push(ev);
     events.push(ev);
   }
@@ -197,7 +219,11 @@ export const cataclysmHit = (state, k) => (state.blights[k] ? CATACLYSM_HIT_BLIG
 
 // Pop: how alive the planet is. Each milestone raises how many it can hold; it grows a few % a day toward that,
 // and shrinks slowly if a lost milestone lowers it.
-export const POP_CAP = { rain: 200, sea: 500, green: 1500, bloom: 4000 };
+export const POP_CAP = {
+  rain: 200, sea: 500, green: 1500, bloom: 4000,
+  rivers: 1000, forests: 1500, weather: 1500, creatures: 2500,
+  settle: 3500, cities: 5000, moon: 4000, voyages: 4000, ring: 4000, sat: 5000, stars: 7000,
+};
 const POP_GROW = 0.04, POP_SHRINK = 0.05; // per day
 export const popCap = (state) => Object.entries(POP_CAP).reduce((n, [id, c]) => n + (state.milestones[id] ? c : 0), 0);
 function growPop(state, dtH) {
@@ -260,7 +286,7 @@ export function cataclysmPreview(state, now) {
   for (let i = MILESTONES.length - 1; i >= 0; i--) {
     const m = MILESTONES[i];
     if (!state.milestones[m.id]) continue;
-    const short = Object.keys(m.req).filter((k) => res[k] < m.req[k] * MILESTONE_KEEP);
+    const short = levelKeys(m).filter((k) => res[k] < m.req[k] * MILESTONE_KEEP);
     if (!short.length) continue;
     risks.push({ m, needs: short.map((k) => ({ k, have: state.res[k], need: Math.ceil(m.req[k] * MILESTONE_KEEP / (1 - cataclysmHit(state, k))) })) });
   }
@@ -502,7 +528,7 @@ export function nextMilestone(state) {
 
 export function milestoneProgress(state, m) {
   let p = 1;
-  for (const k in m.req) p = Math.min(p, state.res[k] / m.req[k]);
+  for (const k in m.req) p = Math.min(p, reqHave(state, k) / m.req[k]);
   return Math.max(0, Math.min(1, p));
 }
 
@@ -511,11 +537,17 @@ export function forecast(state, now) {
   if (!m) return { text: 'The world flourishes. More eras to come.' };
   const r = rates(state, now);
   let hours = 0;
-  for (const k in m.req) {
+  for (const k of levelKeys(m)) {
     const need = m.req[k] - state.res[k];
     if (need <= 0) continue;
     if (r[k] <= 0.001) return { text: m.title + ' is stalled — ' + SYSTEMS[k].label + ' is not growing', m, stalled: k };
     hours = Math.max(hours, need / r[k]);
+  }
+  // goals can't be forecast: they're met when you meet them
+  const goalsLeft = (m.req.goals || 0) - goalsMet(state);
+  if (goalsLeft > 0) {
+    const g = `${goalsLeft} more goal${goalsLeft === 1 ? '' : 's'} met`;
+    return { text: hours > 0 ? `${m.title} in ~${fmtDuration(hours)}, and ${g}` : `${m.title} needs ${g}`, m, hours, goalsLeft };
   }
   return { text: m.title + ' in ~' + fmtDuration(hours) + ' at current pace', m, hours };
 }
@@ -526,18 +558,38 @@ export function fmtDuration(h) {
   return Math.round(h / 24) + ' days';
 }
 
-// Visual parameters for the globe, 0..1
+// What the globe shows. Each milestone adds something you can see; it goes away if the milestone is lost.
+// In Era III, traffic (ships, planes, satellites) grows with Pop, and active blights distort their region.
 export function visuals(state, now) {
   const c = (v) => Math.max(0, Math.min(1, v));
+  const has = (id) => !!state.milestones[id];
+  const r = state.res, pop = state.pop || 0;
   return {
-    ice: c(1 - state.res.heat / 420),
-    clouds: c(state.res.atmos / 420),
-    sea: c(state.res.water / 700),
-    green: state.milestones.green ? c(state.res.life / 700) : 0,
+    // Era I
+    ice: c(1 - r.heat / 420),
+    clouds: c(r.atmos / 420),
+    sea: c(r.water / 700),
+    green: has('green') ? c(r.life / 700) : 0,
+    // Era II
+    biomes: has('bloom'), // grasslands on the higher ground
+    rivers: has('rivers') ? 0.5 + 0.5 * c((r.water - 650) / 1200) : 0,
+    forest: has('forests') ? 0.45 + 0.55 * c((r.life - 1000) / 1500) : 0,
+    weather: has('weather'), // turning storm systems
+    creatures: has('creatures') ? Math.round(5 + 9 * c((r.life - 1600) / 1500)) : 0, // herds on the plains
+    // Era III
+    lights: has('settle') ? (has('cities') ? 0.55 + 0.45 * c((r.life - 2200) / 1500) : 0.25) : 0,
+    cities: has('cities'),
+    moon: has('moon'),
+    ring: has('ring'),
+    launches: has('stars'),
+    ships: has('voyages') ? Math.round(Math.min(16, 3 + pop / 3000)) : 0,
+    planes: has('cities') ? Math.round(Math.min(12, 1 + pop / 4000)) : 0,
+    satellites: has('sat') ? Math.min(5, 1 + Math.floor(pop / 10000)) : 0,
+    // blights
     dust: !!state.blights.atmos,
     cooling: !!state.blights.heat,
     wither: !!state.blights.life,
-    lights: state.milestones.bloom ? c((state.res.life - 350) / 800) : 0,
+    blightAt: Object.keys(state.blights).map((k) => ({ lat: BLIGHTS[k].lat, lon: BLIGHTS[k].lon })),
   };
 }
 

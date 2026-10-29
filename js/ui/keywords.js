@@ -4,7 +4,7 @@
 import { state } from './store.js';
 
 const KW_RULES = [
-  ['ms', /Polar Frost Melts|Haze Thickens|First Rain|First Sea|First Green|Biomes Spread|Era II\b|Era I\b/],
+  ['ms', /Polar Frost Melts|Haze Thickens|First Rain|First Sea|First Green|Biomes Spread|Rivers Run|Forests Rise|Weather Cycles|First Creatures|First Settlements|Cities Glow|Moon Captured|Ships Cross the Seas|Rings Gather|First Satellite|Reach for the Stars|Era III\b|Era II\b|Era I\b/],
   ['bad', /Deep Cooling|Dust Storm|Withering|Ice Age|Dust Age|Great Flood|Plague|[Cc]ataclysms?|−\d+(?:\.\d+)?(?:\/h)?|\b(?:[Bb]lights?|[Dd]rain(?:s|ing)?|[Mm]issed|[Ll]ost|[Ss]talled|[Oo]verdue|[Ff]ading)\b/],
   ['num', /[+×]\s?\d+(?:\.\d+)?(?:\/h|%)?|\b[Dd]oubles\b/],
   ['heat', /\b(?:Crust · Heat|Heat|heat|Physical|PHYS)\b/],
@@ -12,7 +12,7 @@ const KW_RULES = [
   ['water', /\b(?:Water|water)\b/],
   ['life', /\b(?:Social \/ Creative|Life|life|LIFE)\b/],
   ['fx', /\b(?:Steady|Surge|Catalyst|Stabilizer)\b/],
-  ['gold', /\b(?:Pop|[Rr]ewards?|[Ss]treaks?|days? worked|[Ll]andmarks?|[Mm]ilestones?)\b/],
+  ['gold', /\b(?:Pop|[Rr]ewards?|[Ss]treaks?|days? worked|[Ll]andmarks?|[Mm]ilestones?|goals? met)\b/],
 ];
 const KW_RE = new RegExp(KW_RULES.map(([, r]) => `(${r.source})`).join('|'), 'g');
 // where it applies: descriptive text, not chips, buttons, headings or names

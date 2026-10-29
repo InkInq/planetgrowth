@@ -1,6 +1,6 @@
 // The planet view: star background, the spinning globe, and the event markers on it.
 import { CATS, visuals } from '../sim.js';
-import { Globe } from '../globe.js';
+import { Globe, GLOBE_RES, GLOBE_VIEW } from '../globe.js';
 import { state } from './store.js';
 import { $, esc, fmtDate, reducedMotion } from './util.js';
 import { jumpToTask } from './tasks.js';
@@ -28,8 +28,9 @@ addEventListener('resize', drawStars);
 // ---------- globe ----------
 export const canvas = $('#globe');
 export const globe = new Globe(canvas);
+// The canvas is larger than the globe's frame (see #globe in styles.css), leaving room for a ring and moon.
 export function sizeCanvas() {
-  const px = Math.max(1, Math.round(canvas.clientWidth / 112)) * 112;
+  const px = Math.max(1, Math.round(canvas.clientWidth / GLOBE_RES)) * GLOBE_RES;
   canvas.width = px; canvas.height = px;
 }
 sizeCanvas();
@@ -80,7 +81,7 @@ export function drawGlobe(t) {
   const fx = globeFx(t);
   if (fx) vis.cata = fx;
   globe.render(vis, t);
-  if (t - lastMini > 250) { miniCtx.clearRect(0, 0, 56, 56); miniCtx.drawImage(globe.buf, 0, 0, 56, 56); lastMini = t; }
+  if (t - lastMini > 250) { const m = (GLOBE_RES - GLOBE_VIEW) / 2; miniCtx.clearRect(0, 0, 56, 56); miniCtx.drawImage(globe.buf, m, m, GLOBE_VIEW, GLOBE_VIEW, 0, 0, 56, 56); lastMini = t; }
   placeNodes();
 }
 

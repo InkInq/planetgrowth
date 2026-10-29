@@ -482,10 +482,11 @@ button { cursor: pointer; }
 }
 .stage > * { position: relative; }
 .stage > .rail { position: absolute; }
-.stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-width: 0; padding: 16px; }
+.stage { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-width: 0; padding: 16px; }
 .globe-wrap { position: relative; width: min(480px, 100%, 62vh); aspect-ratio: 1; touch-action: none; cursor: grab; }
 .globe-wrap.dragging { cursor: grabbing; }
-#globe { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+/* the canvas reaches past the frame on every side (160 of its pixels for the frame's 112), for the ring and moon */
+#globe { position: absolute; width: calc(100% * 160 / 112); height: calc(100% * 160 / 112); left: calc(-100% * 24 / 112); top: calc(-100% * 24 / 112); image-rendering: pixelated; display: block; pointer-events: none; }
 .nodes { position: absolute; inset: 0; pointer-events: none; }
 .node {
   position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; padding: 0;
@@ -513,9 +514,9 @@ button { cursor: pointer; }
 .forecast-text { font-size: 22px; border: 2px solid var(--hud-edge); padding: 6px 16px; background: var(--hud); box-shadow: inset 2px 2px 0 var(--hud-hi), 4px 4px 0 var(--hud-cast); }
 
 /* World panel */
-.world-summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card); border: 2px solid var(--line); }
+.world-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; background: var(--card); border: 2px solid var(--line); }
 .era-badge { font-family: var(--pixel); font-size: 11px; padding: 4px 8px; background: var(--accent); color: var(--bg); flex: none; }
-.ws-name { flex: 1; min-width: 0; font-family: var(--pixel); font-size: 11px; letter-spacing: 1px; }
+.ws-name { flex: 1 1 auto; min-width: max-content; font-family: var(--pixel); font-size: 11px; letter-spacing: 1px; }
 .ws-count { display: flex; align-items: center; gap: 6px; font-size: 18px; color: var(--muted); }
 .ws-count .px { color: var(--gold); }
 .systems { display: flex; flex-direction: column; gap: 8px; }
@@ -559,6 +560,9 @@ button { cursor: pointer; }
 .ms .t .pct { margin-left: auto; font-family: var(--pixel); font-size: 11px; color: var(--gold); }
 .ms .d { font-size: 16px; color: var(--muted); line-height: 1; }
 .ms .d.lost { color: var(--danger); }
+.road-era { list-style: none; display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; color: var(--muted); }
+.road-era:not(:first-child) { margin-top: 2px; }
+.road-era span { padding: 3px 6px; background: var(--line); color: var(--text); }
 
 /* Month's end: the card that warns about the coming cataclysm */
 .month-end { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--card); border: 2px solid var(--line); border-left: 4px solid var(--danger); }
@@ -598,7 +602,6 @@ button { cursor: pointer; }
 .ms .eta { color: var(--text); }
 .ms .eta.stalled { color: var(--danger); }
 .ms .meter { --seg-gap: var(--panel-solid); height: 10px; }
-.era-tag { font-family: var(--pixel); font-size: 9px; padding: 2px 4px; background: var(--line-2); color: var(--text); }
 
 
 /* Dialogs */

@@ -1,6 +1,6 @@
 // Month's end: when a new month starts, the cataclysm plays out on the globe, then a report shows
 // what it took. The rules (the 25% setback, lost milestones, Pop that survives) live in sim.js.
-import { CATACLYSMS, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED, MILESTONES, MILESTONE_KEEP, POP_SURVIVE, SYSTEMS } from '../sim.js';
+import { CATACLYSMS, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED, MILESTONES, MILESTONE_KEEP, POP_SURVIVE, SYSTEMS, reqText } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save } from './store.js';
 import { $, esc, monthName, reducedMotion } from './util.js';
@@ -67,8 +67,8 @@ function report(c) {
   const lost = c.msLost.map((id) => MILESTONES.find((m) => m.id === id)).filter(Boolean);
   const kept = MILESTONES.filter((m) => state.milestones[m.id]).length;
   const msHtml = lost.length
-    ? `<ul class="cata-lost">${lost.map((m) => `<li>${icon('warn')}<span><b>${esc(m.title)}</b> lost. Earn it back at ${Object.entries(m.req).map(([k, v]) => sysName(k) + ' ' + v).join(' + ')}.</span></li>`).join('')}</ul>`
-    : kept ? `<p class="hint">${icon('check')} Your milestones held: every system stayed above ${MILESTONE_KEEP * 100}% of what they need.</p>`
+    ? `<ul class="cata-lost">${lost.map((m) => `<li>${icon('warn')}<span><b>${esc(m.title)}</b> lost. Earn it back at ${reqText(m)}.</span></li>`).join('')}</ul>`
+    : kept ? `<p class="hint">${icon('check')} Your milestones held: every system stayed above ${MILESTONE_KEEP * 100}% of what its milestones need.</p>`
     : '';
   const why = [
     `${pct(POP_SURVIVE.base)} always survive`,
