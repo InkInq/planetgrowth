@@ -547,7 +547,8 @@ button { cursor: pointer; }
 .ms { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; }
 .ms::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--line-2); }
 .ms:last-child { padding-bottom: 0; }
-.ms:last-child::before { display: none; }
+.ms:has(+ .road-era) { padding-bottom: 18px; }
+.ms:last-child::before, .ms:has(+ .road-era)::before { display: none; }
 .ms .ms-node { width: 28px; height: 28px; display: grid; place-items: center; border: 2px solid var(--line-2); background: var(--bg); color: var(--muted); }
 .ms .ms-node .px { width: 16px; height: 16px; }
 .ms.done .ms-node { background: var(--accent); border-color: var(--accent); color: var(--bg); }
@@ -560,9 +561,21 @@ button { cursor: pointer; }
 .ms .t .pct { margin-left: auto; font-family: var(--pixel); font-size: 11px; color: var(--gold); }
 .ms .d { font-size: 16px; color: var(--muted); line-height: 1; }
 .ms .d.lost { color: var(--danger); }
-.road-era { list-style: none; display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; color: var(--muted); }
-.road-era:not(:first-child) { margin-top: 2px; }
-.road-era span { padding: 3px 6px; background: var(--line); color: var(--text); }
+.road-era { list-style: none; margin: 0 0 10px; }
+.road-era button {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer;
+  background: var(--card); border: 2px solid var(--line); color: var(--muted);
+  font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; text-align: left;
+}
+.road-era button:hover { color: var(--text); border-color: var(--line-2); }
+.road-era button.cur { color: var(--text); }
+.road-era .chev { display: grid; place-items: center; transition: transform 0.12s steps(2); }
+.road-era [aria-expanded="true"] .chev { transform: rotate(90deg); }
+.road-era .tag { padding: 3px 6px; background: var(--line); color: var(--text); }
+.road-era .cur .tag { background: var(--accent); color: var(--bg); }
+.road-era .nm { flex: 1; min-width: 0; }
+.road-era .n { font-family: var(--body); font-size: 17px; letter-spacing: 0; }
+.pill-k { font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; color: var(--muted); }
 
 /* Month's end: the card that warns about the coming cataclysm */
 .month-end { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--card); border: 2px solid var(--line); border-left: 4px solid var(--danger); }

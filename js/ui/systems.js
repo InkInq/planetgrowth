@@ -47,15 +47,31 @@ function sysCard(k, now, r, next, risk) {
   </div>`;
 }
 
+// Eras fold in the milestone list. By default only the era you're in is open; tapping an era's heading
+// opens or folds it, and that choice is remembered on this device.
+const ROAD_KEY = 'planetgrowth-road';
+const roadOpen = (() => { try { return JSON.parse(localStorage.getItem(ROAD_KEY)) || {}; } catch (e) { return {}; } })();
+
 function renderRoad(now) {
   const next = nextMilestone(state);
   const fc = forecast(state, now);
   const gm = goalsMet(state);
+  const curEra = (next || MILESTONES[MILESTONES.length - 1]).era;
+  const isOpen = (era) => roadOpen[era] ?? era === curEra;
   $('#road').innerHTML = MILESTONES.map((m, i) => {
     const at = state.milestones[m.id];
     // goals show how many you have so far: "5 goals met (3/5)"
     const need = Object.entries(m.req).map(([k, v]) => reqLabel(k, v) + (k === 'goals' && !at && gm < v ? ` (${gm}/${v})` : '')).join(' + ');
-    const head = i === 0 || MILESTONES[i - 1].era !== m.era ? `<li class="road-era"><span>ERA ${m.era}</span>${ERAS[m.era].toUpperCase()}</li>` : '';
+    let head = '';
+    if (i === 0 || MILESTONES[i - 1].era !== m.era) {
+      const inEra = MILESTONES.filter((x) => x.era === m.era);
+      const done = inEra.filter((x) => state.milestones[x.id]).length;
+      const open = isOpen(m.era);
+      head = `<li class="road-era"><button type="button" data-era="${m.era}" aria-expanded="${open}"${m.era === curEra ? ' class="cur"' : ''}>`
+        + `<span class="chev">${icon('right')}</span><span class="tag">ERA ${m.era}</span><span class="nm">${ERAS[m.era].toUpperCase()}</span>`
+        + `<span class="n">${done}/${inEra.length}</span></button></li>`;
+    }
+    if (!isOpen(m.era)) return head;
     const lostAt = !at && state.lost?.[m.id];
     const lostLine = lostAt ? `<span class="d lost">Lost ${fmtDate(lostAt)}</span>` : '';
     if (at) {
@@ -64,7 +80,10 @@ function renderRoad(now) {
     }
     if (m === next) {
       const p = milestoneProgress(state, m);
-      const eta = fc.stalled ? `Stalled: ${sysName(fc.stalled)} isn't growing` : fc.hours != null ? `~${fmtDuration(fc.hours)} at this pace` : '';
+      const goalsLeft = fc.goalsLeft ? `${fc.goalsLeft} more goal${fc.goalsLeft === 1 ? '' : 's'} met` : '';
+      const eta = fc.stalled ? `Stalled: ${sysName(fc.stalled)} isn't growing`
+        : goalsLeft ? (fc.hours > 0 ? `~${fmtDuration(fc.hours)} at this pace, and ${goalsLeft}` : `Needs ${goalsLeft}`)
+        : fc.hours != null ? `~${fmtDuration(fc.hours)} at this pace` : '';
       return head + `<li class="ms current"><span class="ms-node">${icon('star')}</span><span class="ms-body">
         <span class="t">${esc(m.title)}<span class="pct">${Math.floor(p * 100)}%</span></span>
         <span class="meter"><span class="fill" style="width:${p * 100}%"></span></span>
@@ -75,15 +94,22 @@ function renderRoad(now) {
   }).join('');
 }
 
+$('#road').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-era]');
+  if (!b) return;
+  roadOpen[b.dataset.era] = b.getAttribute('aria-expanded') !== 'true';
+  try { localStorage.setItem(ROAD_KEY, JSON.stringify(roadOpen)); } catch (err) { /* storage unavailable */ }
+  renderRoad(Date.now());
+});
+
 export function renderSystems() {
   const now = Date.now();
   const r = rates(state, now);
   const next = nextMilestone(state);
   const era = eraOf(state);
   const doneN = MILESTONES.filter((m) => state.milestones[m.id]).length;
-  const showPop = popCap(state) > 0 || state.pop >= 1;
   $('#worldSummary').innerHTML = `<span class="era-badge">ERA ${era.n}</span><span class="ws-name">${era.name.toUpperCase()}</span>`
-    + (showPop ? `<span class="ws-count ws-pop" title="Pop: how alive your planet is. It grows toward ${fmtPop(popCap(state))} with the milestones you've reached.">${icon('pop')}${fmtPop(state.pop)}</span>` : '')
+    + `<span class="ws-count ws-pop" title="${popTitle()}">${icon('pop')}${fmtPop(state.pop)}</span>`
     + `<span class="ws-count" title="Milestones reached">${icon('star')}${doneN}/${MILESTONES.length}</span>`;
   const pv = cataclysmPreview(state, now);
   $('#monthEnd').innerHTML = monthEnd(pv);
@@ -93,6 +119,12 @@ export function renderSystems() {
   $('#systems').innerHTML = Object.keys(SYSTEMS).map((k) => sysCard(k, now, r, next, riskBy[k])).join('');
   renderRoad(now);
 }
+
+// Pop's tooltip: what it is and how far it can grow right now
+const popTitle = () => {
+  const cap = popCap(state);
+  return 'Pop: how alive your planet is. ' + (cap ? `It grows toward ${fmtPop(cap)}, a ceiling set by the milestones you hold.` : 'Life starts growing at First Rain.');
+};
 
 // The card that warns about the month's-end cataclysm: what it takes, what's at risk, and how much Pop survives.
 function monthEnd(pv) {
@@ -134,9 +166,8 @@ export function renderHeader() {
   $('#streakPill').classList.toggle('hot', streak > 0);
   $('#streakPill').setAttribute('aria-label', `Streak: ${streak} day${streak === 1 ? '' : 's'}`);
   $('#forecast').textContent = forecast(state, now).text;
-  const showPop = popCap(state) > 0 || state.pop >= 1;
-  $('#popPill').hidden = !showPop;
   $('#pop').textContent = fmtPop(state.pop);
+  $('#popPill').title = popTitle();
 }
 
 $('#worldName').addEventListener('click', async () => {
