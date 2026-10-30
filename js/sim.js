@@ -595,7 +595,7 @@ export function visuals(state, now) {
 
 export function stats(state, now) {
   const days = 7;
-  const out = { byCat: {}, streak: 0, tasks: [] };
+  const out = { byCat: {}, tasks: [] };
   for (const cat in CATS) {
     const ts = state.tasks.filter((t) => t.recurring && t.cat === cat);
     let sched = 0, done = 0;
@@ -609,9 +609,6 @@ export function stats(state, now) {
     }
     out.byCat[cat] = sched ? done / sched : null;
   }
-  // streak: consecutive days (ending yesterday or today) with at least one completion
-  let d = isAnyDone(state, dayKey(now)) ? 0 : 1;
-  while (isAnyDone(state, dayKey(now - d * DAY))) { out.streak++; d++; }
   for (const t of state.tasks.filter((x) => x.recurring)) {
     const age = Math.min(14, Math.max(1, Math.ceil((now - t.created) / DAY)));
     let c = 0;
@@ -625,4 +622,3 @@ export function stats(state, now) {
   return out;
 }
 
-function isAnyDone(state, k) { return state.history.some((h) => dayKey(h.t) === k); }

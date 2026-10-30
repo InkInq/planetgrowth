@@ -1,19 +1,9 @@
-// The Stats dialog: streaks, activity heatmap, focus time, and how reliably each daily task gets done.
-import { CATS, MILESTONES, DAY, dayKey, stats, eraOf, goalsInMonth, monthKey, GOALS_PER_MONTH } from '../sim.js';
+// The Stats dialog: activity heatmap, focus time, and how reliably each daily task gets done.
+import { CATS, MILESTONES, DAY, dayKey, stats, eraOf, goalsInMonth, monthKey, GOALS_PER_MONTH, popCap } from '../sim.js';
 import { icon } from '../icons.js';
 import { state } from './store.js';
 import { $, esc, fmtMins, lastDays, RANGE, rangeStart } from './util.js';
 import { historyIndex } from './tasks.js';
-
-function bestStreak(perDay, now) {
-  const days = Math.min(3650, Math.ceil((now - state.created) / DAY) + 1);
-  let best = 0, run = 0;
-  for (const { key } of lastDays(days, now)) {
-    run = perDay.has(key) ? run + 1 : 0;
-    best = Math.max(best, run);
-  }
-  return best;
-}
 
 function heatmap(perDay, now) {
   // up to 18 weeks, fewer for a young world so it isn't mostly empty
@@ -58,7 +48,6 @@ export function renderStats() {
   const idx = historyIndex();
   const perDay = new Map();
   for (const h of state.history) { const k = dayKey(h.t); perDay.set(k, (perDay.get(k) || 0) + 1); }
-  const best = Math.max(bestStreak(perDay, now), s.streak);
   const goalsDone = state.goals.filter((g) => g.done).length;
   const msDone = MILESTONES.filter((m) => state.milestones[m.id]).length;
   const pct = (v) => v == null ? '—' : Math.round(v * 100) + '%';
@@ -69,7 +58,7 @@ export function renderStats() {
   $('#statsWorld').textContent = state.name;
 
   const tiles = [
-    { ico: 'streak', c: 'var(--gold)', v: s.streak, k: 'DAY STREAK', sub: `Best ${best}` },
+    { ico: 'pop', c: 'var(--gold)', v: Math.floor(state.pop || 0).toLocaleString(), k: 'POP', sub: popCap(state) ? `Ceiling ${popCap(state).toLocaleString()}` : 'Grows from First Rain' },
     { ico: 'check', c: 'var(--accent)', v: state.history.filter((h) => h.t >= rangeStart(RANGE.tasks, now)).length, k: `TASKS · ${RANGE.tasks} DAYS`, sub: `${state.history.length} all time` },
     { ico: 'flag', c: 'var(--good)', v: goalsDone, k: 'GOALS MET · ALL TIME', sub: `${goalsInMonth(state, monthKey(now)).length}/${GOALS_PER_MONTH} set this month` },
     { ico: 'star', c: 'var(--gold)', v: `${msDone}/${MILESTONES.length}`, k: 'MILESTONES', sub: `Era ${eraOf(state).n}` },

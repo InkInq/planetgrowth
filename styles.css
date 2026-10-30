@@ -141,8 +141,6 @@ button { cursor: pointer; }
 .era-bar::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--bg) calc(10% - 2px) 10%); }
 .era-next { font-size: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 2px solid var(--line); color: var(--muted); font-size: 20px; white-space: nowrap; }
-.streak-pill { font-family: var(--pixel); font-size: 13px; }
-.streak-pill.hot { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); background: color-mix(in srgb, var(--gold) 10%, transparent); }
 .stats-btn { gap: 8px; min-height: 34px; padding: 6px 12px; }
 .stats-btn .px { color: var(--accent); }
 .icon-only { width: 34px; height: 34px; min-height: 34px; padding: 0; justify-content: center; flex: none; }

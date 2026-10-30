@@ -1,4 +1,4 @@
-// The header (world name, era, streak) and the World panel: planet systems and the milestone road.
+// The header (world name, era, Pop) and the World panel: planet systems and the milestone road.
 import {
   CATS, SYSTEMS, MILESTONES, BLIGHTS, HOUR, DAY, rates, nextMilestone, milestoneProgress, forecast, eraOf, stats, fmtDuration,
   cataclysmPreview, popCap, unlocked, reqLabel, goalsMet, ERAS, CATACLYSM_HIT, CATACLYSM_HIT_BLIGHTED,
@@ -161,11 +161,6 @@ export function renderHeader() {
   $('#worldNameText').textContent = state.name;
   const cycle = Math.floor((now - state.created) / DAY) + 1;
   $('#cycle').textContent = 'CYCLE ' + String(cycle).padStart(3, '0');
-  const streak = stats(state, now).streak;
-  $('#streak').textContent = streak;
-  $('#streakPill').hidden = streak === 0; // shown only while a streak is going
-  $('#streakPill').classList.toggle('hot', streak > 0);
-  $('#streakPill').setAttribute('aria-label', `Streak: ${streak} day${streak === 1 ? '' : 's'}`);
   $('#forecast').textContent = forecast(state, now).text;
   $('#pop').textContent = fmtPop(state.pop);
   $('#popPill').title = popTitle();

@@ -19,13 +19,6 @@ export function historyIndex() {
   return s;
 }
 
-// Consecutive days done, ending today (or yesterday if not done yet today).
-function taskStreak(idx, t, now) {
-  let d = idx.has(t.id + '|' + dayKey(now)) ? 0 : 1, n = 0;
-  while (idx.has(t.id + '|' + dayKey(now - d * DAY))) { n++; d++; }
-  return n;
-}
-
 // Badge on a task that feeds a goal: "Run 50 km +5 km"
 function goalBadge(t) {
   const g = linkedGoal(t);
@@ -35,7 +28,7 @@ function goalBadge(t) {
 }
 const linkedGoal = (t) => { const g = t.goalId && state.goals.find((x) => x.id === t.goalId); return g && !g.done && !g.missed ? g : null; };
 
-function taskCard(t, done, streak) {
+function taskCard(t, done) {
   const c = CATS[t.cat];
   const blight = !done && state.blights[c.sys];
   return `<li class="task${done ? ' done' : ''}" style="--c:${c.color}" data-name="${esc(t.name)}">
@@ -48,7 +41,6 @@ function taskCard(t, done, streak) {
       <span class="chips">
         <span class="chip reward">${icon(t.type)}${rewardText(t.cat, t.type)}</span>
         <span class="chip muted">${icon(t.recurring ? 'repeat' : 'once')}${t.recurring ? 'Daily' : 'Once'}</span>
-        ${streak >= 2 ? `<span class="chip streak">${icon('streak')}${streak}d streak</span>` : ''}
         ${blight ? `<span class="chip blight">${icon('warn')}${BLIGHTS[c.sys].title}</span>` : ''}
         ${goalBadge(t)}
       </span>
@@ -82,9 +74,9 @@ export function renderTasks() {
   if (!all.length) { ul.innerHTML = '<li class="empty">No tasks yet. Add one to start feeding your world.</li>'; return; }
   const shown = catFilter === 'ALL' ? all : all.filter((t) => t.cat === catFilter);
   const open = shown.filter((t) => !isDone(t)), done = shown.filter(isDone);
-  let html = open.map((t) => taskCard(t, false, taskStreak(idx, t, now))).join('');
+  let html = open.map((t) => taskCard(t, false)).join('');
   if (!open.length) html += `<li class="empty">${shown.length ? 'All done here today. The planet thanks you.' : 'No ' + CATS[catFilter].label + ' tasks yet.'}</li>`;
-  if (done.length) html += `<li class="list-label label">DONE TODAY · ${done.length}</li>` + done.map((t) => taskCard(t, true, taskStreak(idx, t, now))).join('');
+  if (done.length) html += `<li class="list-label label">DONE TODAY · ${done.length}</li>` + done.map((t) => taskCard(t, true)).join('');
   ul.innerHTML = html;
 }
 
