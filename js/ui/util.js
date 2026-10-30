@@ -8,6 +8,8 @@ export const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
 // ---------- numbers, dates, times ----------
 export const fmtNum = (v) => String(+(+v).toFixed(2));
+// a goal percentage: "12.5%", at most one decimal
+export const fmtPct = (v) => String(+(+v).toFixed(1)) + '%';
 export function fmtDate(t) { return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
 export const fmtTime = (t) => new Date(t).toLocaleTimeString([], new Date(t).getMinutes() ? { hour: 'numeric', minute: '2-digit' } : { hour: 'numeric' });
 export const fmtMins = (m) => (m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + ' min');

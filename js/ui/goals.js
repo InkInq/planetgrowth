@@ -2,11 +2,11 @@
 // Each goal belongs to this month or next, is due on that month's last day, max 3 per month.
 import {
   CATS, DAY, dayKey, uid, goalProgress, reopenGoal, GOALS_PER_MONTH, GOAL_REWARD, goalReward,
-  monthKey, monthAfter, monthLastDay, monthStart, goalsInMonth, openGoals,
+  monthKey, monthAfter, monthLastDay, monthStart, goalsInMonth, openGoals, goalPace,
 } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save, pending, markDeleted } from './store.js';
-import { $, esc, fmtNum, fmtDate, monthName, sysShort, catTiles } from './util.js';
+import { $, esc, fmtNum, fmtPct, fmtDate, monthName, sysShort, catTiles } from './util.js';
 import { toast, announce, floatReward, ask } from './feedback.js';
 import { renderAll } from './render.js';
 import { setView, syncFab } from './layout.js';
@@ -19,43 +19,59 @@ const goalMonths = (now = Date.now()) => { const cur = monthKey(now); return [cu
 const monthRoom = (mk, exceptId) => GOALS_PER_MONTH - goalsInMonth(state, mk).filter((g) => g.id !== exceptId).length;
 export const canAddGoal = () => goalMonths().some((mk) => monthRoom(mk) > 0);
 
+// The pace line under a goal's bar: whether it's on track, where it's heading, and what keeps it there.
+export function paceStatus(g, p) {
+  if (p.status === 'later') return { cls: 'muted', text: 'Not started' };
+  if (p.status === 'done') return { cls: 'good', text: 'Met' };
+  if (p.status === 'behind') return { cls: 'streak', text: `Behind by ${fmtPct(Math.round(-p.diff))}` };
+  if (p.status === 'ahead') return { cls: 'good', text: `Ahead by ${fmtPct(Math.round(p.diff))}` };
+  return { cls: 'good', text: 'On track' };
+}
+
 function goalCard(g, now) {
   const c = CATS[g.cat];
-  const pct = Math.min(100, g.current / g.target * 100);
+  const pct = Math.min(100, g.current);
+  const p = goalPace(g, now);
+  const st = paceStatus(g, p);
   const left = goalDaysLeft(g, now);
-  const remain = Math.max(0, g.target - g.current);
-  const started = monthStart(g.month) <= now;
-  // a goal for next month counts its pace over the whole month
-  const days = started ? left : Math.round((new Date(g.deadline + 'T23:59:59') - monthStart(g.month)) / DAY);
+  const started = p.status !== 'later';
   const dueCls = left <= 3 ? 'streak' : 'muted';
   const r = goalReward(g);
   const today = (g.log || []).some((e) => dayKey(e.t) === dayKey(now));
   const feeders = state.tasks.filter((t) => t.goalId === g.id);
   const dueText = !started ? `${monthName(g.month)} · starts in ${Math.ceil((monthStart(g.month) - now) / DAY)}d`
     : left <= 0 ? `${monthName(g.month)} · due today` : `${monthName(g.month)} · ${left}d left`;
-  const pace = days > 0 && remain > 0 ? `${fmtNum(remain / days)} ${esc(g.unit)}/day` : '';
+  const end = new Date(g.deadline + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // where it's heading, and what finishes it: "+2.4% a day · about 6 more Run"
+  const lines = [];
+  if (p.projected != null) lines.push(`At this pace: ${Math.round(Math.min(999, p.projected))}% by ${end}`);
+  if (g.current < 100) {
+    const best = feeders.filter((t) => t.goalAmt > 0).sort((a, b) => b.goalAmt - a.goalAmt)[0];
+    const more = best ? ` · about ${Math.ceil((100 - g.current) / best.goalAmt)} more ${esc(best.name)}` : '';
+    lines.push(started ? `${fmtPct(p.perDay)} a day to finish${more}` : `${fmtPct(p.perDay)} a day over ${p.daysIn} days`);
+  }
   return `<li class="goal" style="--c:${c.color}">
     <button type="button" class="goal-body" data-editgoal="${g.id}">
       <span class="goal-top"><span class="name">${esc(g.name)}</span><span class="cat-ico" aria-hidden="true">${icon(c.sys)}</span></span>
-      <span class="goal-nums"><span class="cur">${fmtNum(g.current)}</span><span class="of">/ ${fmtNum(g.target)} ${esc(g.unit)}</span><span class="pct">${Math.floor(pct)}%</span></span>
-      <span class="meter"><span class="fill" style="width:${pct}%"></span></span>
+      <span class="goal-nums"><span class="cur">${fmtPct(Math.floor(pct * 10) / 10)}</span><span class="chip ${st.cls} pace-chip">${st.text}</span></span>
+      <span class="meter"><span class="fill" style="width:${pct}%"></span>${started ? `<span class="mark" style="left:${p.expected}%" title="Where it would be today if spread evenly over the month"></span>` : ''}</span>
+      ${lines.length ? `<span class="pace-lines">${lines.map((l) => `<span>${l}</span>`).join('')}</span>` : ''}
       <span class="chips">
         <span class="chip ${dueCls}">${icon('clock')}${dueText}</span>
-        ${pace ? `<span class="chip muted" title="Needed per day to finish on time">${icon('steady')}${pace}</span>` : ''}
       </span>
       <span class="goal-pot" title="Paid when you meet the goal. Grows +${GOAL_REWARD.dayRes} for each day you work on it; lost if the month ends first.">
         <span class="pot-head">${icon('star')}<span class="pot-v">+${r.res} ${sysShort(g.cat)} · +${r.gen}/h</span><span class="pot-k">REWARD · ${r.days} DAY${r.days === 1 ? '' : 'S'} WORKED</span></span>
         <span class="pot-today${today ? ' on' : ''}">${today ? icon('check') + `Worked today · reward grew +${GOAL_REWARD.dayRes}` : started ? `Work on it today to grow it +${GOAL_REWARD.dayRes}` : `Starts growing ${monthName(g.month)} 1`}</span>
       </span>
-      ${feeders.length ? `<span class="fed-by">Fed by ${feeders.map((t) => `${esc(t.name)} <b>+${fmtNum(t.goalAmt || 1)}</b>`).join(', ')}</span>` : ''}
+      ${feeders.length || g.focusPerHour > 0 ? `<span class="fed-by">Fed by ${[...feeders.map((t) => `${esc(t.name)} <b>+${fmtPct(t.goalAmt || 1)}</b>`), ...(g.focusPerHour > 0 ? [`focus <b>+${fmtPct(g.focusPerHour)}/h</b>`] : [])].join(', ')}</span>` : ''}
     </button>
     ${started ? '' : `<div class="goal-later">${icon('clock')}Logging opens ${monthName(g.month)} 1</div>`}
     <div class="goal-log"${started ? '' : ' hidden'}>
-      <button type="button" class="step" data-step="-1" data-goal="${g.id}" aria-label="Less">${icon('minus')}</button>
-      <input type="number" step="any" min="0" value="1" inputmode="decimal" data-amt="${g.id}" aria-label="Amount to log for ${esc(g.name)}">
-      <button type="button" class="step" data-step="1" data-goal="${g.id}" aria-label="More">${icon('plus')}</button>
+      <button type="button" class="step" data-step="-5" data-goal="${g.id}" aria-label="Less">${icon('minus')}</button>
+      <input type="number" step="any" min="0" max="100" value="5" inputmode="decimal" data-amt="${g.id}" aria-label="Percent to log for ${esc(g.name)}">
+      <button type="button" class="step" data-step="5" data-goal="${g.id}" aria-label="More">${icon('plus')}</button>
       <button type="button" class="btn-sm focus-go" data-focus="${g.id}" title="Start a focus session for this goal">${icon('clock')}FOCUS</button>
-      <button type="button" class="btn-log" data-log="${g.id}">LOG</button>
+      <button type="button" class="btn-log" data-log="${g.id}">LOG %</button>
     </div>
   </li>`;
 }
@@ -87,7 +103,7 @@ export function renderGoals() {
   if (past.length) {
     html += `<li class="list-label label">PAST GOALS · ${past.filter((g) => g.done).length} MET · ${past.filter((g) => g.missed).length} MISSED</li>` + past.map((g) => `
       <li class="achieved${g.missed ? ' missed' : ''}" style="--c:${CATS[g.cat].color}">${icon(g.done ? 'star' : 'close')}<span class="name">${esc(g.name)}</span>
-        <span class="meta">${g.done ? `paid +${(g.paid || goalReward(g)).res} · ${fmtDate(g.done)}` : `lost +${goalReward(g).res} · ${fmtNum(g.current)}/${fmtNum(g.target)} · ${monthName(g.month, 'short')}`}</span></li>`).join('');
+        <span class="meta">${g.done ? `paid +${(g.paid || goalReward(g)).res} · ${fmtDate(g.done)}` : `reached ${fmtPct(Math.min(100, g.current))} · ${monthName(g.month, 'short')}`}</span></li>`).join('');
   }
   $('#goalList').innerHTML = html;
   syncFab();
@@ -115,8 +131,8 @@ $('#goalList').addEventListener('keydown', (e) => {
 function logGoal(btn) {
   const g = state.goals.find((x) => x.id === btn.dataset.log);
   const amt = parseFloat(document.querySelector(`[data-amt="${g.id}"]`).value) || 0;
-  if (amt <= 0) { toast('Enter an amount to log'); return; }
-  floatReward(btn, '+' + fmtNum(amt) + ' ' + g.unit, CATS[g.cat].color);
+  if (amt <= 0) { toast('Enter a percentage to log'); return; }
+  floatReward(btn, '+' + fmtPct(amt), CATS[g.cat].color);
   const before = goalReward(g).res;
   const met = goalProgress(state, g, amt, Date.now(), pending);
   const undo = () => {
@@ -131,7 +147,7 @@ function logGoal(btn) {
     toast(`★ ${g.name} complete · +${g.paid.res} ${sysShort(g.cat)}`, { label: 'UNDO', run: undo });
   } else {
     const after = goalReward(g).res;
-    toast(`Logged ${fmtNum(amt)} ${g.unit}` + (after > before ? ` · reward grew to +${after}` : ` · ${g.name}`), { label: 'UNDO', run: undo });
+    toast(`Logged +${fmtPct(amt)}` + (after > before ? ` · reward grew to +${after}` : ` · ${g.name}`), { label: 'UNDO', run: undo });
   }
   save(); announce(pending); renderAll();
 }
@@ -162,16 +178,12 @@ function renderMonthPicker(g) {
 function updateGoalPreview() {
   const cat = goalForm.querySelector('[name="cat"]:checked').value;
   goalForm.style.setProperty('--form-c', CATS[cat].color);
-  const target = parseFloat(gField('target').value);
   const current = editingGoalId ? parseFloat(gField('current').value) || 0 : 0;
-  const unit = gField('unit').value.trim();
   const mk = pickedMonth();
   const end = mk ? new Date(monthLastDay(mk) + 'T23:59:59').getTime() : 0;
   const days = mk ? Math.max(1, Math.ceil((end - Math.max(Date.now(), monthStart(mk))) / DAY)) : 0;
-  const remain = target - current;
-  const pace = !(target > 0) || !days ? 'Set a target to see the pace.'
-    : remain <= 0 ? 'Target already met.'
-    : `About ${fmtNum(remain / days)}${unit ? ' ' + esc(unit) : ''} a day over ${days} days of ${monthName(mk)}.`;
+  const remain = 100 - current;
+  const pace = !days ? '' : remain <= 0 ? 'Already at 100%.' : `About ${fmtPct(remain / days)} a day over ${days} days of ${monthName(mk)}.`;
   const g = editingGoalId && state.goals.find((x) => x.id === editingGoalId);
   const r = g ? goalReward(g) : goalReward({});
   $('#goalPreview').innerHTML = `<span class="label">REWARD ${g ? 'SO FAR · ' + r.days + ' DAY' + (r.days === 1 ? '' : 'S') + ' WORKED' : 'TO START'}</span>
@@ -193,9 +205,8 @@ export function openGoalDlg(g) {
   renderMonthPicker(g);
   if (g) {
     gField('name').value = g.name;
-    gField('target').value = g.target;
-    gField('unit').value = g.unit;
     gField('current').value = fmtNum(g.current);
+    gField('focusPerHour').value = g.focusPerHour > 0 ? fmtNum(g.focusPerHour) : '';
     goalForm.querySelector(`[name="cat"][value="${g.cat}"]`).checked = true;
   }
   setDialogTip(goalForm, g ? '' : 'goal');
@@ -207,15 +218,16 @@ goalForm.addEventListener('submit', (e) => {
   const f = new FormData(e.target);
   const g = editingGoalId && state.goals.find((x) => x.id === editingGoalId);
   const data = {
-    name: String(f.get('name')).trim(), target: parseFloat(f.get('target')), unit: String(f.get('unit')).trim(),
+    name: String(f.get('name')).trim(), target: 100, unit: '%',
     cat: f.get('cat'), month: String(f.get('month') || ''),
+    focusPerHour: Math.max(0, Math.min(100, parseFloat(f.get('focusPerHour')) || 0)),
   };
   // the month must be this month or next, with a free slot (full months are disabled in the picker)
   if (!goalMonths().includes(data.month) || monthRoom(data.month, g?.id) <= 0) { e.preventDefault(); return; }
   data.deadline = monthLastDay(data.month);
   if (g) {
     Object.assign(g, data);
-    g.current = Math.max(0, parseFloat(f.get('current')) || 0);
+    g.current = Math.max(0, Math.min(100, parseFloat(f.get('current')) || 0));
     goalProgress(state, g, 0, Date.now(), pending); // completes it if the target is now met
     if (!g.done) toast('Goal updated');
   } else {
@@ -229,7 +241,7 @@ goalForm.addEventListener('submit', (e) => {
 $('#goalAbandon').addEventListener('click', async () => {
   const g = state.goals.find((x) => x.id === editingGoalId);
   if (!g) return;
-  if (!(await ask({ title: 'ABANDON GOAL?', body: `"${g.name}" and its progress (${fmtNum(g.current)} ${g.unit}) will be lost, along with its +${goalReward(g).res} reward. Its ${monthName(g.month)} slot frees up.`, ok: 'ABANDON', danger: true }))) return;
+  if (!(await ask({ title: 'ABANDON GOAL?', body: `"${g.name}" and its progress (${fmtPct(g.current)}) will be lost, along with its +${goalReward(g).res} reward. Its ${monthName(g.month)} slot frees up.`, ok: 'ABANDON', danger: true }))) return;
   state.goals = state.goals.filter((x) => x.id !== editingGoalId);
   markDeleted(editingGoalId);
   for (const t of state.tasks) if (t.goalId === editingGoalId) delete t.goalId; // unlink its tasks

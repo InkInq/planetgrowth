@@ -380,6 +380,8 @@ button { cursor: pointer; }
 .goal-nums .cur { font-family: var(--pixel); font-size: 20px; color: var(--c); }
 .goal-nums .of { font-size: 19px; color: var(--muted); }
 .goal-nums .pct { margin-left: auto; font-family: var(--pixel); font-size: 11px; color: var(--c); }
+.goal-nums .pace-chip { margin-left: auto; align-self: center; }
+.pace-lines { display: flex; flex-direction: column; gap: 3px; font-size: 16px; line-height: 1.1; color: color-mix(in srgb, var(--text) 75%, var(--muted)); }
 .goal-log { display: flex; align-items: center; gap: 6px; padding: 0 12px 12px 14px; }
 .step { width: 36px; height: 36px; flex: none; display: grid; place-items: center; background: none; border: 2px solid var(--line-2); color: var(--text); }
 .step:hover { border-color: var(--c); }
@@ -448,7 +450,9 @@ button { cursor: pointer; }
 .fed-by b { font-weight: 400; color: var(--c); }
 .goal-later { display: flex; align-items: center; gap: 6px; padding: 0 12px 12px 14px; font-size: 16px; color: var(--muted); }
 .goal-link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
-.goal-amt .amt-row { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.amt-row { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.goal-amt .amt-row { gap: 6px; color: var(--text); }
+#goalForm .amt-row input { width: 96px; flex: none; }
 .dlg .goal-link .goal-amt input[type="number"] { width: 84px; }
 .achieved.missed { color: var(--done); }
 .achieved.missed .name { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 2px; }

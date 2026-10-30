@@ -1,8 +1,8 @@
 // The Daily tab: the task list, checking tasks off, and the new/edit task dialog.
-import { CATS, TYPES, BLIGHTS, DAY, completeTask, uncompleteTask, isDoneToday, uid, dayKey, goalStarted } from '../sim.js';
+import { CATS, TYPES, BLIGHTS, DAY, completeTask, uncompleteTask, isDoneToday, uid, dayKey, goalStarted, goalPace } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save, pending, markDeleted } from './store.js';
-import { $, esc, fmtNum, monthName, rewardText, catTiles } from './util.js';
+import { $, esc, fmtNum, fmtPct, monthName, rewardText, catTiles } from './util.js';
 import { toast, announce, floatReward, ask } from './feedback.js';
 import { renderAll } from './render.js';
 import { setView, togglePanel } from './layout.js';
@@ -24,7 +24,7 @@ function goalBadge(t) {
   const g = linkedGoal(t);
   if (!g) return '';
   const later = !goalStarted(g, Date.now());
-  return `<span class="chip${later ? ' muted' : ''}" style="--chip:${CATS[g.cat].color}" title="${later ? 'Starts counting ' + monthName(g.month) + ' 1' : 'Each completion adds to this goal'}">${icon('flag')}${esc(g.name)} +${fmtNum(t.goalAmt || 1)} ${esc(g.unit)}</span>`;
+  return `<span class="chip${later ? ' muted' : ''}" style="--chip:${CATS[g.cat].color}" title="${later ? 'Starts counting ' + monthName(g.month) + ' 1' : 'Each completion adds to this goal'}">${icon('flag')}${esc(g.name)} +${fmtPct(t.goalAmt || 1)}</span>`;
 }
 const linkedGoal = (t) => { const g = t.goalId && state.goals.find((x) => x.id === t.goalId); return g && !g.done && !g.missed ? g : null; };
 
@@ -106,7 +106,7 @@ export function onTaskCheck(e) {
     floatReward(e.target.closest('.check'), FLOAT_TEXT[t.type], CATS[t.cat].color);
     const h = state.history[state.history.length - 1];
     const g = h.goal && state.goals.find((x) => x.id === h.goal);
-    toast('✓ ' + t.name + ' · ' + (g ? `+${fmtNum(h.goalAmt)} ${g.unit} to ${g.name}` : rewardText(t.cat, t.type)), {
+    toast('✓ ' + t.name + ' · ' + (g ? `+${fmtPct(h.goalAmt)} to ${g.name}` : rewardText(t.cat, t.type)), {
       label: 'UNDO',
       run: () => { uncompleteTask(state, t, Date.now()); save(); renderAll(); },
     });
@@ -142,11 +142,11 @@ function updateTaskPreview() {
   const g = state.goals.find((x) => x.id === $('#taskGoal').value);
   $('#taskPreview').innerHTML = `<span class="label">ON COMPLETE</span>
     <span class="chip reward">${icon(type)}${rewardText(cat, type)}</span>
-    ${g ? `<span class="chip" style="--chip:${CATS[g.cat].color}">${icon('flag')}+${fmtNum(parseFloat($('#taskGoalAmt').value) || 1)} ${esc(g.unit)} to ${esc(g.name)}</span>` : ''}
+    ${g ? `<span class="chip" style="--chip:${CATS[g.cat].color}">${icon('flag')}+${fmtPct(parseFloat($('#taskGoalAmt').value) || 1)} to ${esc(g.name)}</span>` : ''}
     <span class="pv-desc">${esc(TYPES[type].desc)}. ${daily ? 'Repeats every day.' : 'Done once, then archived.'}</span>`;
 }
-$('#taskGoalAmt').addEventListener('input', updateTaskPreview);
-taskForm.addEventListener('change', updateTaskPreview);
+$('#taskGoalAmt').addEventListener('input', () => { amtTouched = true; updateTaskPreview(); });
+taskForm.addEventListener('change', (e) => { if (e.target.name === 'recurring') syncGoalLink(); updateTaskPreview(); });
 
 // "Counts toward a goal": any open goal, this month's or next month's
 function fillGoalLink(task) {
@@ -155,15 +155,24 @@ function fillGoalLink(task) {
   $('#taskGoal').innerHTML = '<option value="">No goal</option>' + goals.map((g) =>
     `<option value="${g.id}"${cur === g ? ' selected' : ''}>${esc(g.name)} · ${monthName(g.month, 'short')}</option>`).join('');
   $('#taskGoal').disabled = !goals.length;
-  $('#taskGoalAmt').value = task?.goalAmt ? fmtNum(task.goalAmt) : 1;
+  amtTouched = !!(task && cur);
+  $('#taskGoalAmt').value = task?.goalAmt && cur ? fmtNum(task.goalAmt) : '';
   syncGoalLink();
 }
+// A starting share for a linked task: done every day of the goal's month, a daily task reaches 100%.
+let amtTouched = false;
+const suggestedAmt = (g, daily) => (daily ? Math.ceil(1000 / goalPace(g, Date.now()).daysIn) / 10 : 10); // rounded up, so every day reaches 100%
 function syncGoalLink() {
   const g = state.goals.find((x) => x.id === $('#taskGoal').value);
+  const daily = picked('recurring') === '1';
   $('#taskGoalAmtRow').hidden = !g;
-  $('#taskGoalUnit').textContent = g ? g.unit : '';
+  $('#taskGoalUnit').textContent = '%';
+  if (g && !amtTouched) $('#taskGoalAmt').value = suggestedAmt(g, daily);
+  const sug = g ? suggestedAmt(g, daily) : 0;
   const hint = !state.goals.some((x) => !x.done && !x.missed) ? 'No goals yet. Set one in the Goals tab, then link tasks to it here.'
-    : g && !goalStarted(g, Date.now()) ? `Starts counting on ${monthName(g.month)} 1.` : '';
+    : !g ? ''
+    : (daily ? `Suggested ${fmtPct(sug)}: done every day of ${monthName(g.month)}, it adds up to 100%.` : `Suggested ${fmtPct(sug)} for a one-off step.`)
+      + (goalStarted(g, Date.now()) ? '' : ` Starts counting on ${monthName(g.month)} 1.`);
   $('#taskGoalHint').textContent = hint;
   $('#taskGoalHint').hidden = !hint;
 }
@@ -198,7 +207,7 @@ taskForm.addEventListener('submit', (e) => {
   const recurring = f.get('recurring') === '1';
   const task = editingId && state.tasks.find((x) => x.id === editingId);
   const goalId = String(f.get('goalId') || '') || null;
-  const link = { goalId, goalAmt: goalId ? Math.max(0.01, parseFloat(f.get('goalAmt')) || 1) : undefined };
+  const link = { goalId, goalAmt: goalId ? Math.max(0.1, Math.min(100, parseFloat(f.get('goalAmt')) || 1)) : undefined };
   if (task) {
     Object.assign(task, { name, recurring, cat: f.get('cat') || task.cat, type: f.get('type') || task.type }, link);
     toast('Task updated');

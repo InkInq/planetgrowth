@@ -42,9 +42,11 @@ Water isn't a category. It forms on its own once Heat and Atmosphere are balance
 **Daily vs goals**
 
 - Daily tasks repeat and keep your baseline rates healthy.
-- Goals are monthly: each belongs to a calendar month (this month or next) and is due on its last day. At most 3 per month; met goals keep their slot, abandoned ones free it. Unfinished goals are marked missed when the month ends. Each needs a measurable target.
+- Goals are monthly: each belongs to a calendar month (this month or next) and is due on its last day. At most 3 per month; met goals keep their slot, abandoned ones free it. Goals not at 100% when the month ends are marked missed.
 - Each goal holds a reward that grows: +30 to its system and +0.1/h to start, plus +4 and +0.01/h for every day you work on it (a manual log or a linked task). It's paid when you meet the goal and lost if the month ends first, so steady work pays more than a last-minute push. Meeting a goal also leaves a landmark on the globe.
-- A task can count toward a goal: link it in the task editor and set how much each completion adds (e.g. Evening run → +5 km). Checking the task off logs that amount; unchecking takes it back. Next month's goals start counting when their month begins.
+- Goals are tracked in percent. A task can count toward a goal: link it in the task editor and set the share each completion adds. The editor suggests one (a daily task: 100 ÷ the days in the month, so doing it every day reaches 100%; a one-off: 10%). Checking the task off logs that share; unchecking takes it back. Next month's goals start counting when their month begins.
+- Each goal card shows its pace: a marker on the bar for where it would be today if spread evenly over the month, a status (On track within 5%, Ahead, or Behind by some %), where it's heading at this pace (from day 3), and what finishes it ("4.7% a day · about 6 more Run").
+- Saves from before goals were in percent convert on load: progress, linked tasks and past logs are rescaled, and the old target is kept for reference.
 
 **Decay**
 
@@ -67,7 +69,7 @@ Pop is a number for how alive the planet is. It grows slowly toward a ceiling se
 
 Start a focus session from the FOCUS button in the top bar, or from a goal card to tag it to that goal. Pick a round length (15–60 min) and 1–4 rounds with 5-minute breaks between.
 
-- Each finished round logs to its tagged goal: goals measured in minutes or hours get the time, goals counted in pomodoros or sessions get +1, and any other unit counts it as a day worked (so the reward still grows).
+- Each finished round logs to its tagged goal at the rate set on that goal ("Focus time adds 10% per hour"). A goal with no rate counts the round as a day worked, so its reward still grows.
 - The countdown shows in the top bar and the tab title, survives reloads, and chimes between rounds (can be turned off). Pause anytime; ending early asks whether to log the minutes done.
 - Finished rounds show as blocks on the calendar and are summed up in Stats.
 

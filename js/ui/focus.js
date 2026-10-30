@@ -4,7 +4,7 @@
 import { CATS, focusAmount, goalFocus, goalReward, goalStarted } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save, pending } from './store.js';
-import { $, esc, fmtNum, fmtMins } from './util.js';
+import { $, esc, fmtNum, fmtPct, fmtMins } from './util.js';
 import { toast, announce, ask } from './feedback.js';
 import { renderAll } from './render.js';
 import { remindFocus } from './reminders.js';
@@ -37,11 +37,11 @@ function focusPhase(f, now) {
     finished: el >= p.total,
   };
 }
-// What a round does for a goal, in words: "+30 min", "+0.5 hours", "+1 pomodoro", or a day worked
+// What a round does for a goal, in words: "+5% to Run 40 km per round", or a day worked
 function focusEffect(g, mins) {
   if (!g) return 'Just focus. Nothing is logged to a goal.';
-  const amt = focusAmount(g.unit, mins);
-  return amt > 0 ? `+${fmtNum(amt)} ${esc(g.unit)} to ${esc(g.name)} per round` : `Counts as a day worked on ${esc(g.name)} (its unit, ${esc(g.unit)}, isn't time)`;
+  const amt = focusAmount(g, mins);
+  return amt > 0 ? `+${fmtPct(amt)} to ${esc(g.name)} per round` : `Counts as a day worked on ${esc(g.name)}. To add progress too, set "Focus time adds" on the goal.`;
 }
 
 function chime(kind) {
@@ -65,7 +65,7 @@ function logFocusRound(f, mins, t) {
   const before = g ? goalReward(g).res : 0;
   const amt = g ? goalFocus(state, g, mins, t, pending) : null;
   const grew = g && !g.done && goalReward(g).res > before ? ` · reward grew to +${goalReward(g).res}` : '';
-  toast(`Focus round done · ${mins} min` + (g ? (amt > 0 ? ` · +${fmtNum(amt)} ${g.unit} to ${g.name}` : ` on ${g.name}`) : '') + grew);
+  toast(`Focus round done · ${mins} min` + (g ? (amt > 0 ? ` · +${fmtPct(amt)} to ${g.name}` : ` on ${g.name}`) : '') + grew);
 }
 
 // Called every frame-ish: logs rounds that have ended, plays chimes, ends the session.
@@ -142,7 +142,7 @@ function updateFocusPreview() {
   $('#focusDlg').style.setProperty('--form-c', g ? CATS[g.cat].color : 'var(--accent)');
   $('#focusGoals').querySelectorAll('[data-effect]').forEach((el) => {
     const gg = state.goals.find((x) => x.id === el.dataset.effect);
-    el.textContent = gg ? (focusAmount(gg.unit, focusSel.mins) > 0 ? `+${fmtNum(focusAmount(gg.unit, focusSel.mins))} ${gg.unit} per round` : 'Counts as a day worked') : 'Focus without logging';
+    el.textContent = gg ? (focusAmount(gg, focusSel.mins) > 0 ? `+${fmtPct(focusAmount(gg, focusSel.mins))} per round` : 'Counts as a day worked') : 'Focus without logging';
   });
   const total = focusSel.rounds * focusSel.mins + (focusSel.rounds - 1) * FOCUS_BREAK;
   const ends = new Date(Date.now() + total * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

@@ -2,7 +2,7 @@
 import { CATS, MILESTONES, DAY, dayKey, focusAmount, goalMonth } from '../sim.js';
 import { icon } from '../icons.js';
 import { state } from './store.js';
-import { $, esc, fmtNum, fmtTime, fmtMins, monthName, plural, startOfDay, RANGE, rangeStart, rewardText } from './util.js';
+import { $, esc, fmtNum, fmtPct, fmtTime, fmtMins, monthName, plural, startOfDay, RANGE, rangeStart, rewardText } from './util.js';
 import { KIND, turnTo, hasNode, openTip } from './world.js';
 import { jumpToTask } from './tasks.js';
 import { openGoalDlg } from './goals.js';
@@ -33,7 +33,7 @@ function historyItems() {
   for (const h of state.history) {
     const t = taskById.get(h.taskId), g = h.goal && goalById.get(h.goal);
     out.push({ t: h.t, kind: 'task', ico: 'check', c: CATS[h.cat].color, title: h.name,
-      detail: (t ? rewardText(h.cat, t.type) : CATS[h.cat].label) + (g ? ` · +${fmtNum(h.goalAmt)} ${g.unit} to ${g.name}` : ''), task: h.name });
+      detail: (t ? rewardText(h.cat, t.type) : CATS[h.cat].label) + (g ? ` · +${fmtPct(h.goalAmt)} to ${g.name}` : ''), task: h.name });
   }
   for (const e of state.events) {
     out.push({ t: e.t, kind: e.kind === 'goal' ? 'goal' : 'planet', ico: EVENT_ICON[e.kind] || 'star', c: KIND[e.kind].color, title: e.title, detail: e.body || '', event: e.id });
@@ -41,18 +41,18 @@ function historyItems() {
   const focusKeys = new Set((state.focusLog || []).map((f) => f.goalId + '|' + f.t));
   for (const g of state.goals) {
     const c = CATS[g.cat].color;
-    out.push({ t: g.created, kind: 'goal', ico: 'flag', c, title: 'Goal set', detail: `${g.name} · ${fmtNum(g.target)} ${g.unit} by the end of ${monthName(goalMonth(g))}`, goal: g.id });
+    out.push({ t: g.created, kind: 'goal', ico: 'flag', c, title: 'Goal set', detail: `${g.name} · by the end of ${monthName(goalMonth(g))}`, goal: g.id });
     for (const l of g.log || []) {
       if (l.task || !(l.amt > 0) || focusKeys.has(g.id + '|' + l.t)) continue; // tasks and focus rounds are listed on their own
-      out.push({ t: l.t, kind: 'goal', ico: 'plus', c, title: `Logged +${fmtNum(l.amt)} ${g.unit}`, detail: g.name, goal: g.id });
+      out.push({ t: l.t, kind: 'goal', ico: 'plus', c, title: `Logged +${fmtPct(l.amt)}`, detail: g.name, goal: g.id });
     }
-    if (g.missed) out.push({ t: g.missed, kind: 'goal', ico: 'close', c: 'var(--danger)', title: 'Goal missed', detail: `${g.name} · ${fmtNum(g.current)}/${fmtNum(g.target)} ${g.unit} · reward lost`, goal: g.id });
+    if (g.missed) out.push({ t: g.missed, kind: 'goal', ico: 'close', c: 'var(--danger)', title: 'Goal missed', detail: `${g.name} · reached ${fmtPct(Math.min(100, g.current))}`, goal: g.id });
   }
   for (const f of state.focusLog || []) {
     const g = f.goalId && goalById.get(f.goalId);
-    const amt = g ? focusAmount(g.unit, f.mins) : 0;
+    const amt = g ? focusAmount(g, f.mins) : 0;
     out.push({ t: f.t, kind: 'focus', ico: 'clock', c: g ? CATS[g.cat].color : 'var(--accent)', title: `Focus · ${f.mins} min`,
-      detail: g ? (amt > 0 ? `+${fmtNum(amt)} ${g.unit} to ${g.name}` : `A day worked on ${g.name}`) : 'No goal tagged', goal: g ? g.id : null });
+      detail: g ? (amt > 0 ? `+${fmtPct(amt)} to ${g.name}` : `A day worked on ${g.name}`) : 'No goal tagged', goal: g ? g.id : null });
   }
   return out.sort((a, b) => b.t - a.t);
 }

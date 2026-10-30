@@ -178,13 +178,10 @@
 <dialog id="goalDlg" class="dlg">
   <form method="dialog" id="goalForm">
     <h2 id="goalDlgTitle">NEW GOAL</h2>
-    <label>Goal<input name="name" required maxlength="40" autocomplete="off" placeholder="Run a 5k"></label>
-    <div class="row">
-      <label>Target<input name="target" type="number" min="0.01" step="any" required placeholder="5" inputmode="decimal"></label>
-      <label>Unit<input name="unit" required maxlength="12" placeholder="km" autocomplete="off"></label>
-    </div>
-    <p class="hint">Measuring time? Use minutes or hours as the unit, and focus sessions will log it for you.</p>
-    <label id="goalProgressRow" hidden>Progress so far<input name="current" type="number" min="0" step="any" inputmode="decimal"></label>
+    <label>Goal<input name="name" required maxlength="40" autocomplete="off" placeholder="Run 40 km this month"></label>
+    <p class="hint">Progress is a percentage, 0 to 100. Link tasks to it (each adds the share you choose), log it by hand, or count focus time.</p>
+    <label id="goalProgressRow" hidden>Progress so far<span class="amt-row"><input name="current" type="number" min="0" max="100" step="any" inputmode="decimal"><span>%</span></span></label>
+    <label>Focus time adds<span class="amt-row"><input name="focusPerHour" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="0"><span>% per hour (optional)</span></span></label>
     <fieldset class="picker cat-picker" id="goalCatPicker">
       <legend>Feeds</legend>
     </fieldset>
@@ -192,7 +189,7 @@
       <legend>Month · due on its last day</legend>
     </fieldset>
     <div class="reward-preview" id="goalPreview"></div>
-    <p class="hint">Goals are monthly: up to 3 per calendar month, each with a number you can measure. Unfinished goals are marked missed when the month ends.</p>
+    <p class="hint">Goals are monthly: up to 3 per calendar month, each tracked as a percentage. A goal that isn't at 100% when its month ends is marked missed.</p>
     <div class="dlg-actions">
       <button type="button" class="btn-ghost danger" id="goalAbandon" hidden>ABANDON</button>
       <span class="spacer"></span>

@@ -350,8 +350,49 @@ export const goalMonth = (g) => g.month || String(g.deadline || dayKey(g.created
 export const goalsInMonth = (state, mk) => state.goals.filter((g) => !g.missed && goalMonth(g) === mk);
 export const openGoals = (state) => state.goals.filter((g) => !g.done && !g.missed);
 
+// Goals are tracked in percent: 0 to 100. Saves from when goals had their own target and unit
+// ("40 km") are converted once: progress, logged amounts, linked tasks and past check-offs are
+// rescaled, focus time keeps counting at the same rate, and the old target is kept as `was`.
+const r2 = (n) => Math.round(n * 100) / 100;
+const OLD_FOCUS_PER_HOUR = [[/^(m|min|mins|minute|minutes)$/i, 60], [/^(h|hr|hrs|hour|hours)$/i, 1], [/^(pomodoros?|poms?|sessions?|rounds?)$/i, 60 / 25]];
+export function percentGoals(state) {
+  for (const g of state.goals || []) {
+    if (g.unit === '%' && g.target === 100) continue;
+    const k = 100 / (g.target > 0 ? g.target : 100);
+    const per = OLD_FOCUS_PER_HOUR.find(([re]) => re.test(String(g.unit || '').trim()));
+    g.focusPerHour = per ? r2(per[1] * k) : 0;
+    g.was = `${r2(g.target)} ${g.unit || ''}`.trim();
+    g.current = r2(g.current * k);
+    for (const e of g.log || []) e.amt = r2((e.amt || 0) * k);
+    for (const t of state.tasks || []) if (t.goalId === g.id) t.goalAmt = r2((t.goalAmt || 1) * k);
+    for (const h of state.history || []) if (h.goal === g.id) h.goalAmt = r2((h.goalAmt || 0) * k);
+    g.target = 100;
+    g.unit = '%';
+  }
+}
+
+// Where a goal should be by now if you spread it evenly over its month, and where it's heading.
+// status: 'later' (its month hasn't started), 'done', 'ahead', 'on' (within 5% of the line) or 'behind'.
+export const PACE_SLACK = 5;
+export function goalPace(g, now) {
+  const start = monthStart(goalMonth(g));
+  const end = new Date(monthLastDay(goalMonth(g)) + 'T23:59:59').getTime();
+  const daysIn = Math.round((end - start) / DAY);
+  if (g.done) return { status: 'done', daysIn };
+  if (now < start) return { status: 'later', daysIn, expected: 0, perDay: 100 / daysIn };
+  const elapsed = Math.min(daysIn, Math.max(1, Math.ceil((now - start) / DAY))); // today counts
+  const daysLeft = Math.max(1, daysIn - elapsed + 1);
+  const expected = 100 * elapsed / daysIn;
+  const diff = g.current - expected;
+  const status = diff >= 10 ? 'ahead' : diff >= -PACE_SLACK ? 'on' : 'behind';
+  // a projection needs a few days of history to mean anything
+  const projected = elapsed >= 3 ? g.current / elapsed * daysIn : null;
+  return { status, daysIn, elapsed, daysLeft, expected, diff, projected, perDay: Math.max(0, 100 - g.current) / daysLeft };
+}
+
 // Unfinished goals from a month that has ended are marked missed.
 export function expireGoals(state, now) {
+  percentGoals(state);
   const cur = monthKey(now);
   for (const g of state.goals) {
     g.month = goalMonth(g);
@@ -464,17 +505,14 @@ export function goalReward(g) {
 export const goalStarted = (g, now) => goalMonth(g) <= monthKey(now);
 const goalOpen = (g) => !!g && !g.done && !g.missed;
 
-// Focus sessions (pomodoros) log time toward a goal. Time units take the minutes,
-// "pomodoros"/"sessions" count 1 per round, and any other unit just counts as a day worked.
-const TIME_UNITS = [[/^(m|min|mins|minute|minutes)$/i, 1], [/^(h|hr|hrs|hour|hours)$/i, 1 / 60]];
-export function focusAmount(unit, mins) {
-  const u = String(unit || '').trim();
-  for (const [re, k] of TIME_UNITS) if (re.test(u)) return +(mins * k).toFixed(2);
-  return /^(pomodoros?|poms?|sessions?|rounds?)$/i.test(u) ? 1 : 0;
+// Focus sessions (pomodoros) add to a goal at the rate set on it (% per hour of focus). A goal with no
+// rate still counts the round as a day worked, which grows its reward.
+export function focusAmount(goal, mins) {
+  return goal && goal.focusPerHour > 0 ? r2(goal.focusPerHour * mins / 60) : 0;
 }
 export function goalFocus(state, goal, mins, t, events) {
   if (!goalOpen(goal) || !goalStarted(goal, t)) return null;
-  const amt = focusAmount(goal.unit, mins);
+  const amt = focusAmount(goal, mins);
   if (amt > 0) goalProgress(state, goal, amt, t, events);
   else (goal.log ||= []).push({ t, amt: 0, focus: mins });
   return amt;

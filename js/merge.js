@@ -3,7 +3,7 @@
 // Something deleted on one device stays deleted (saves remember deletions in state.deleted).
 // Tasks finished only on the other device still count: their effect on the planet is added on top,
 // goal progress logged on either device adds up, and goals the other device completed pay out here too.
-import { CATS, dayKey, replayEffect, goalProgress, expireGoals } from './sim.js';
+import { CATS, dayKey, replayEffect, goalProgress, expireGoals, percentGoals } from './sim.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const ids = (xs) => new Set((xs || []).map((x) => x.id));
@@ -29,6 +29,7 @@ export function mergeSaves(local, incoming, now) {
   const incomingNewer = (incoming.lastTick || 0) > (local.lastTick || 0);
   const out = clone(incomingNewer ? incoming : local);
   const old = clone(incomingNewer ? local : incoming);
+  percentGoals(out); percentGoals(old); // both sides count goals in % before they're combined
   const delNew = out.deleted || {}, delOld = old.deleted || {};
   out.deleted = { ...delOld, ...delNew };
   const today = dayKey(now);

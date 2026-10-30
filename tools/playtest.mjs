@@ -83,9 +83,11 @@ function playYear(player, seed) {
       const daysLeft = +monthLastDay(mk).slice(8) - day.getDate() + 1;
       const linkable = [...s.tasks].sort(() => rand() - 0.5).slice(0, player.goals);
       for (const t of linkable) {
-        const g = { id: uid(), name: 'Goal ' + t.name, target: Math.max(3, Math.round(daysLeft * player.aim)), unit: 'times', cat: t.cat, month: mk, deadline: monthLastDay(mk), current: 0, created: d0 };
+        // goals are in %: each completion of the linked task adds 100 / (the times they aim for)
+        const times = Math.max(3, Math.round(daysLeft * player.aim));
+        const g = { id: uid(), name: 'Goal ' + t.name, target: 100, unit: '%', cat: t.cat, month: mk, deadline: monthLastDay(mk), current: 0, created: d0 };
         s.goals.push(g);
-        t.goalId = g.id; t.goalAmt = 1;
+        t.goalId = g.id; t.goalAmt = 100 / times;
         out.goalsSet++;
       }
     }

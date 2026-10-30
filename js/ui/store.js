@@ -29,4 +29,4 @@ save();
 export function markDeleted(id) { (state.deleted ||= {})[id] = Date.now(); }
 
 // Swaps in a whole new world (an imported save, or a reset).
-export function setState(next) { state = next; }
+export function setState(next) { state = next; expireGoals(state, Date.now()); }

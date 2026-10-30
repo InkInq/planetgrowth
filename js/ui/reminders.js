@@ -4,7 +4,7 @@
 // Nothing is shown until notifications are allowed. Settings live on this device only, like the theme.
 import { CATS, BLIGHTS, DAY, dayKey, monthKey, goalStarted } from '../sim.js';
 import { state } from './store.js';
-import { $, fmtNum } from './util.js';
+import { $, fmtNum, fmtPct } from './util.js';
 import { toast } from './feedback.js';
 
 const KEY = 'planetgrowth-reminders';
@@ -79,8 +79,8 @@ export function checkReminders(now = Date.now()) {
       if (g.done || g.missed || g.month !== monthKey(now) || !goalStarted(g, now)) continue;
       const daysLeft = Math.ceil((new Date(g.deadline + 'T23:59:59') - now) / DAY);
       if (daysLeft > prefs.goalDays) continue;
-      const remain = Math.max(0, g.target - g.current);
-      once('goal-' + g.id, today, () => queue.push([g.name, `${fmtNum(g.current)} / ${fmtNum(g.target)} ${g.unit}, ${daysLeft <= 1 ? 'last day' : daysLeft + ' days left'}. About ${fmtNum(remain / Math.max(1, daysLeft))} ${g.unit} a day to make it.`, 'goal-' + g.id]));
+      const remain = Math.max(0, 100 - g.current);
+      once('goal-' + g.id, today, () => queue.push([g.name, `${fmtPct(g.current)} done, ${daysLeft <= 1 ? 'last day' : daysLeft + ' days left'}. About ${fmtPct(remain / Math.max(1, daysLeft))} a day to make it.`, 'goal-' + g.id]));
     }
   }
 

@@ -4,7 +4,7 @@
 import { uid } from '../sim.js';
 import { icon } from '../icons.js';
 import { state, save } from './store.js';
-import { $, esc, rewardText } from './util.js';
+import { $, esc, fmtPct, rewardText } from './util.js';
 import { toast, ask } from './feedback.js';
 import { renderAll } from './render.js';
 import { setView, togglePanel } from './layout.js';
@@ -29,7 +29,7 @@ const STEPS = [
 const TIPS = {
   task: "Pick something you'd like to do every day. Its category decides which part of the planet it feeds. Its effect decides how: Steady builds slowly and lasts, Surge doubles for 12h, Catalyst is an instant boost, Stabilizer protects.",
   link: 'Under "Counts toward a goal", pick your goal and how much each check-off adds, like +2 km.',
-  goal: 'Goals are monthly. Pick something you can count: 40 km, 4 books, 600 minutes. Every day you work on it, its reward grows.',
+  goal: 'Goals are monthly, and progress is a percentage. Name what you\'re working toward, like "Run 40 km". Every day you work on it, its reward grows.',
   settings: "Turn on the reminders you want. To play on another device, Export your world here and Import it there: work from both is kept. Close Settings when you're done.",
 };
 
@@ -168,13 +168,13 @@ function afterStep(id) {
     showCoach({ target: () => taskLi(x.name), k, text: `"${x.name}" is on your list. Check it off whenever you do it, and the planet grows a little each time.` });
   } else if (id === 'goal') {
     setView('goals');
-    showCoach({ target: () => document.querySelector('#goalList .goal'), k, text: 'Its reward grows every day you work on it, and is paid when you meet the goal. Add progress with LOG, or let linked tasks do it.' });
+    showCoach({ target: () => document.querySelector('#goalList .goal'), k, text: 'The bar shows its %, and the line marks where it would be today if spread evenly over the month. Add progress with LOG, or let linked tasks do it.' });
   } else if (id === 'link') {
     const x = state.tasks.find((t) => !t.tut && t.goalId);
     const g = state.goals.find((y) => y.id === x.goalId);
     setView('tasks');
     renderAll();
-    showCoach({ target: () => taskLi(x.name), k, text: `Now checking off "${x.name}" also adds +${x.goalAmt || 1} ${g.unit} to "${g.name}".` });
+    showCoach({ target: () => taskLi(x.name), k, text: `Now checking off "${x.name}" also adds +${fmtPct(x.goalAmt || 1)} to "${g.name}".` });
   }
 }
 

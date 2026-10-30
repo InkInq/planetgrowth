@@ -16,7 +16,7 @@ const KW_RULES = [
 ];
 const KW_RE = new RegExp(KW_RULES.map(([, r]) => `(${r.source})`).join('|'), 'g');
 // where it applies: descriptive text, not chips, buttons, headings or names
-const KW_SCOPE = '.coach p, .me-line span, .cata-dlg .hint, .cata-lost span, .inline-coach p, .learned span, .fs .how, .tut-p, .hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
+const KW_SCOPE = '.coach p, .pace-lines span, .me-line span, .cata-dlg .hint, .cata-lost span, .inline-coach p, .learned span, .fs .how, .tut-p, .hist-d, .hint, .pv-desc, .tile .s, .sys-title .feed, .sys-next, .ms .d, #forecast, #eraNext, .tip p, .pot-today, .goal-later, #askBody, .toast-msg, .focus-goal, .empty, .li-none';
 
 const typedNames = () => [state.name, ...state.tasks.map((t) => t.name), ...state.goals.map((g) => g.name), ...state.cal.map((e) => e.title)]
   .filter((n) => n && n.length > 1).sort((a, b) => b.length - a.length);
