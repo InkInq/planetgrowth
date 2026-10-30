@@ -933,3 +933,43 @@ body[data-view="calendar"] .panel.left { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .node, .ms.current .ms-node { animation: none; }
 }
+
+/* ---------- the sky view (zoomed out) ---------- */
+.view-toggle {
+  position: absolute; z-index: 4; top: 12px; right: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+  font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; color: var(--text); cursor: pointer;
+  background: var(--hud); border: 2px solid var(--hud-edge); box-shadow: inset 2px 2px 0 var(--hud-hi), 3px 3px 0 var(--hud-cast);
+}
+.view-toggle:hover { color: var(--accent); }
+.sky { position: absolute; inset: 0; z-index: 2; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+.sky[aria-hidden="false"] { opacity: 1; pointer-events: auto; }
+.sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.stage .globe-wrap, .stage .forecast { transition: transform 0.35s, opacity 0.35s; }
+body[data-sky="1"] .stage .globe-wrap { transform: scale(0.25); opacity: 0; pointer-events: none; }
+body[data-sky="1"] .stage .forecast { opacity: 0; pointer-events: none; }
+.sky-nodes { position: absolute; inset: 0; }
+.sky-node { position: absolute; padding: 0; background: none; border: 0; border-radius: 50%; cursor: pointer; }
+.sky-node:hover, .sky-node:focus-visible { outline: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -4px; }
+.sky-node .lbl { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -6px); font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--muted); white-space: nowrap; }
+.sky-node.cur .lbl { color: var(--accent); }
+.sky-tip { position: absolute; width: 220px; }
+.sky-tip .k { font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+.sky-tip h3 { margin: 4px 0; }
+.month-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0 8px; }
+.month-tiles .mt { display: flex; flex-direction: column; gap: 4px; padding: 10px; background: var(--card); border: 2px solid var(--line); }
+.month-tiles .v { font-family: var(--pixel); font-size: 18px; }
+.month-tiles .k { font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+.month-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.month-goals { list-style: none; margin: 6px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.month-goals li { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; align-items: center; gap: 10px; font-size: 19px; }
+.month-goals li.none { display: block; color: var(--muted); }
+.month-goals .meter { --seg-gap: var(--panel-solid); height: 10px; }
+.month-goals .meter .fill { background: var(--c); }
+.month-goals .s { font-size: 16px; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.month-goals .s.met { color: var(--gold); }
+@media (max-width: 860px) {
+  .view-toggle { top: 10px; right: 10px; }
+  .month-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .month-goals li { grid-template-columns: minmax(0, 1fr) auto; }
+  .month-goals .meter { grid-column: 1 / -1; grid-row: 2; }
+}

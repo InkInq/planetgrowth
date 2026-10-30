@@ -111,11 +111,17 @@ Seventeen milestones, earned in order. Each one changes how the planet looks, an
 | --- | --- | --- |
 | I · Cold Desert | Polar Frost Melts, Haze Thickens, First Rain, First Sea, First Green | Ice melts, haze and clouds, the sea fills, green on the shores |
 | II · Living World | Biomes Spread, Rivers Run, Forests Rise, Weather Cycles, First Creatures | Grasslands, rivers, dark forests, turning storms, grazing herds |
-| III · Awakened World | First Settlements, Cities Glow, Moon Captured, Ships Cross the Seas, Rings Gather, First Satellite, Reach for the Stars | Lights at dusk and night, cities by day, a moon, ships, a ring, satellites, rocket launches |
+| III · Awakened World | First Settlements, Cities Glow, Orbital Station, Ships Cross the Seas, Space Elevator, First Satellite, Reach for the Stars | Lights at dusk and night, cities by day, a crewed station, ships, a cable from the equator to orbit, satellites, rocket launches |
 
 Era III milestones also need monthly goals met (5 to 13, counted over the planet's life). In Era III, ships, planes and satellites grow in number with Pop, and an active blight distorts its region of the globe: the ground ripples and red scan lines flicker through it.
 
 A forecast under the globe estimates when the next milestone lands at your current pace, and how many more goals it needs.
+
+**Goals on the planet and in the sky**
+
+- Each goal met this month puts a moon around the planet (two at most); meeting all three adds a ring. They reset when the month ends and stay with that month's planet in the sky.
+- **SKY** (top right of the planet, or scroll out) zooms out to the sky: a star with a planet for each month the world has lived through, placed around the orbit like a clock (up to 12). Your planet is this month's; the others show how it looked when their month ended, with the moons and ring their goals earned. Empty places on the orbit are the months still to come. Tap a month for its summary: tasks done, daily-task %, goals and how far each got, focus time, milestones reached or lost, blights, and what its month's end took.
+- Each goal you're working on is a nebula in the sky, condensing into a star as its % rises. A ring of ten dots lights one per 10%, a gold dot marks where the pace says it should be, and it glows warm when on track and cool when behind. At 100% it becomes a twinkling star that stays in your sky for good (new ones glow for a few days). A goal that ends short simply fades; it's still in that month's summary.
 
 ## Files
 

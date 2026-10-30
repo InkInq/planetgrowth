@@ -1,5 +1,5 @@
 // Offline support: cache the app shell, serve cache-first, refresh in the background.
-const CACHE = 'planetgrowth-v25';
+const CACHE = 'planetgrowth-v26';
 const SHELL = [
   './',
   './index.html',
@@ -24,6 +24,7 @@ const SHELL = [
   './js/ui/cataclysm.js',
   './js/ui/focus.js',
   './js/ui/settings.js',
+  './js/ui/sky.js',
   './js/ui/layout.js',
   './js/ui/render.js',
   './js/ui/keywords.js',

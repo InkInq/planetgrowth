@@ -70,6 +70,13 @@ What it shows:
 - Every milestone has its own look on the globe, removed if it's lost. In Era III, ships, planes and satellites grow with Pop, and active blights distort their region. City lights moved from Biomes Spread to First Settlements.
 - Pop ceilings: Era I 6,200 in all, Era II +10,000, Era III +32,000.
 
+### Goals on the planet and in the sky (built)
+- The planet shows daily consistency; the sky shows goals.
+- Goals met this month: a moon each (two at most), and a ring for all three. They reset each month and stay with that month's planet.
+- Sky view: a star with up to 12 month planets placed like a clock. Only this month's planet is managed; the rest are snapshots (saved when each month ends, before its cataclysm) that open a month summary.
+- A goal in progress is a nebula condensing into a star (a ring of ten dots for its %, a gold dot for its pace, cool when behind); met goals stay as twinkling stars. A comet heading for the planet was rejected: it reads as a threat.
+- Era III's Moon Captured and Rings Gather became Orbital Station and Space Elevator (same requirements), so moons and rings belong to goals.
+
 ## Pinned for later
 
 ### Unlocks bought with Pop

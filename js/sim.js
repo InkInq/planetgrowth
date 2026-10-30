@@ -54,9 +54,9 @@ export const MILESTONES = [
   { id: 'creatures', era: 'II', title: 'First Creatures', body: 'The first creatures roam the plains.', req: { life: 1600, water: 1100 }, lat: -0.1, lon: 3.6 },
   { id: 'settle', era: 'III', title: 'First Settlements', body: 'Small settlements light up by the water. Era III begins.', req: { heat: 2000, atmos: 1600, water: 1300, life: 1900 }, lat: 0.15, lon: 5.8 },
   { id: 'cities', era: 'III', title: 'Cities Glow', body: 'Cities spread, and the night side glows.', req: { life: 2200, goals: 5 }, lat: 0.35, lon: 1.3 },
-  { id: 'moon', era: 'III', title: 'Moon Captured', body: 'A wandering moon is caught in orbit.', req: { heat: 2700, goals: 7 }, lat: 0.9, lon: 4.9 },
+  { id: 'moon', era: 'III', title: 'Orbital Station', body: 'A crewed station circles the world.', req: { heat: 2700, goals: 7 }, lat: 0.9, lon: 4.9 },
   { id: 'voyages', era: 'III', title: 'Ships Cross the Seas', body: 'Ships sail between the continents.', req: { water: 1900, goals: 8 }, lat: -0.3, lon: 5.4 },
-  { id: 'ring', era: 'III', title: 'Rings Gather', body: 'Dust and ice gather into a ring around the world.', req: { atmos: 2400, goals: 10 }, lat: -0.8, lon: 0.4 },
+  { id: 'ring', era: 'III', title: 'Space Elevator', body: 'A cable rises from the equator all the way to orbit.', req: { atmos: 2400, goals: 10 }, lat: -0.8, lon: 0.4 },
   { id: 'sat', era: 'III', title: 'First Satellite', body: 'The first satellite blinks into orbit.', req: { water: 2050, life: 2600, goals: 11 }, lat: 0.5, lon: 3.0 },
   { id: 'stars', era: 'III', title: 'Reach for the Stars', body: 'Rockets rise toward the stars.', req: { heat: 3000, atmos: 2600, water: 2200, life: 2800, goals: 13 }, lat: -0.05, lon: 1.9 },
 ];
@@ -164,6 +164,7 @@ export function advance(state, now, events) {
   rollDays(state, now, events);
   state.lastMonth ||= monthKey(now); // saves from before cataclysms start counting from now
   if (monthKey(now) !== state.lastMonth) {
+    snapshotMonth(state, state.lastMonth);
     if (now - state.created < GRACE_DAYS * DAY) state.lastMonth = monthKey(now); // a new world's first month ends quietly
     else cataclysm(state, now, events);
   }
@@ -248,6 +249,56 @@ export function monthConsistency(state, mk, now) {
   return due ? did / due : null;
 }
 export const goalsMetIn = (state, mk) => state.goals.filter((g) => g.done && goalMonth(g) === mk).length;
+
+// ---------- months: each month's planet, kept for the sky view ----------
+// When a month ends, how the planet looked is saved (before the month's-end cataclysm).
+export function snapshotMonth(state, mk) {
+  (state.months ||= {})[mk] = { res: { ...state.res }, milestones: Object.keys(state.milestones), pop: state.pop || 0 };
+}
+export const monthEnd = (mk) => new Date(monthLastDay(mk) + 'T23:59:59').getTime();
+// The months this world has lived through, oldest first, the current one last (at most `max`).
+export function worldMonths(state, now, max = 12) {
+  const out = [];
+  for (let mk = monthKey(state.created); mk <= monthKey(now); mk = monthAfter(mk)) out.push(mk);
+  return out.slice(-max);
+}
+// How a month's planet looked at its end. Months from before snapshots were kept are rebuilt from the
+// milestones reached by then.
+export function monthVisuals(state, mk, now) {
+  if (mk === monthKey(now)) return visuals(state, now);
+  let snap = state.months?.[mk];
+  if (!snap) {
+    const end = monthEnd(mk);
+    const ms = MILESTONES.filter((m) => state.milestones[m.id] && state.milestones[m.id] <= end);
+    const res = { heat: 20, atmos: 10, water: 0, life: 0 };
+    for (const m of ms) for (const k of levelKeys(m)) res[k] = Math.max(res[k], m.req[k] * 1.1);
+    snap = { res, milestones: ms.map((m) => m.id), pop: 0 };
+  }
+  const fake = { res: snap.res, milestones: Object.fromEntries(snap.milestones.map((id) => [id, 1])), pop: snap.pop, blights: {}, goals: state.goals };
+  return visuals(fake, monthEnd(mk) - 1000);
+}
+
+// What happened in a month, for its summary in the sky view.
+export function monthSummary(state, mk, now) {
+  const start = monthStart(mk), end = monthEnd(mk);
+  const inMonth = (t) => t >= start && t <= end;
+  const done = state.history.filter((h) => inMonth(h.t));
+  const byCat = {};
+  for (const cat in CATS) byCat[cat] = done.filter((h) => h.cat === cat).length;
+  const goals = state.goals.filter((g) => goalMonth(g) === mk).map((g) => ({ id: g.id, name: g.name, cat: g.cat, pct: Math.min(100, g.current), done: g.done || null, missed: g.missed || null }));
+  const ev = state.events.filter((e) => inMonth(e.t));
+  return {
+    mk, current: mk === monthKey(now),
+    tasksDone: done.length, byCat,
+    consistency: monthConsistency(state, mk, Math.min(now, end)),
+    goals,
+    reached: ev.filter((e) => e.kind === 'milestone' && MILESTONES.some((m) => m.title === e.title)).map((e) => e.title),
+    lost: ev.filter((e) => e.kind === 'lost').map((e) => e.title.replace(/ Lost$/, '')),
+    blights: ev.filter((e) => e.kind === 'blight').length,
+    focusMins: (state.focusLog || []).filter((f) => inMonth(f.t)).reduce((n, f) => n + f.mins, 0),
+    cataclysm: (state.cataclysms || []).find((c) => c.month === mk) || null,
+  };
+}
 
 export function cataclysm(state, now, events, type) {
   const ended = state.lastMonth || monthKey(now);
@@ -617,9 +668,12 @@ export function visuals(state, now) {
     // Era III
     lights: has('settle') ? (has('cities') ? 0.55 + 0.45 * c((r.life - 2200) / 1500) : 0.25) : 0,
     cities: has('cities'),
-    moon: has('moon'),
-    ring: has('ring'),
+    station: has('moon'), // Orbital Station
+    elevator: has('ring'), // Space Elevator
     launches: has('stars'),
+    // goals met this month: a moon each (two at most), and a ring for all three
+    goalMoons: Math.min(2, goalsMetIn(state, monthKey(now))),
+    goalRing: goalsMetIn(state, monthKey(now)) >= GOALS_PER_MONTH,
     ships: has('voyages') ? Math.round(Math.min(16, 3 + pop / 3000)) : 0,
     planes: has('cities') ? Math.round(Math.min(12, 1 + pop / 4000)) : 0,
     satellites: has('sat') ? Math.min(5, 1 + Math.floor(pop / 10000)) : 0,

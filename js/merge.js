@@ -88,6 +88,7 @@ export function mergeSaves(local, incoming, now) {
   out.cataclysms = [...(out.cataclysms || []), ...(old.cataclysms || []).filter((c) => !dupCata.has(c.id))].sort((a, b) => a.t - b.t);
   out.events = out.events.filter((e) => !dupCata.has(e.id));
   if ((old.lastMonth || '') > (out.lastMonth || '')) out.lastMonth = old.lastMonth;
+  out.months = { ...(old.months || {}), ...(out.months || {}) }; // month snapshots for the sky view
 
   // a goal that crosses its target with the combined progress is met now
   for (const g of out.goals) goalProgress(out, g, 0, now, []);

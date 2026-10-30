@@ -93,6 +93,12 @@
   <main class="stage">
     <button type="button" class="rail rail-left" data-collapse="left" aria-label="Show tasks panel" title="Show panel ( [ )"><span data-icon="right"></span><span class="rail-t">TASKS</span></button>
     <button type="button" class="rail rail-right" data-collapse="right" aria-label="Show world panel" title="Show panel ( ] )"><span data-icon="left"></span><span class="rail-t">WORLD</span></button>
+    <button type="button" class="view-toggle" id="viewToggle" aria-label="Zoom out to the sky"><span>SKY</span><span data-icon="right"></span></button>
+    <div class="sky" id="sky" hidden aria-hidden="true">
+      <canvas id="skyCanvas" aria-hidden="true"></canvas>
+      <div id="skyNodes" class="sky-nodes"></div>
+      <div id="skyTip" class="tip sky-tip" hidden></div>
+    </div>
     <div class="globe-wrap" id="globeWrap">
       <canvas id="globe" role="img" aria-label="Your planet"></canvas>
       <div id="nodes" class="nodes"></div>
@@ -339,6 +345,10 @@
       <button type="submit" class="btn" id="askOk" value="ok">OK</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="monthDlg" class="dlg dlg-wide month-dlg">
+  <div class="dlg-body"></div>
 </dialog>
 
 <dialog id="cataDlg" class="dlg cata-dlg">

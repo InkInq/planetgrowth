@@ -5,6 +5,7 @@
 const VIEW = 112; // buffer pixels that map onto the globe's frame on screen
 const RES = 160; // buffer pixels across, including the space around the frame
 const R = 48; // planet radius in buffer pixels
+// (a Globe can also be made smaller, for the month planets in the sky view: new Globe(canvas, { res, r }))
 const TW = 256, TH = 128; // texture size (lon x lat)
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16 - 0.5);
@@ -82,30 +83,41 @@ const CRATERS = [
 const seeds = (n, s) => Array.from({ length: n }, (_, i) => ({ a: hash(i, 1, s), b: hash(i, 2, s), c: hash(i, 3, s) }));
 const HERDS = seeds(14, 11), SHIPS = seeds(16, 23), PLANES = seeds(12, 37), SATS = seeds(5, 51);
 const LAUNCH = { lat: -0.05, lon: 1.9 }; // the launch site (Reach for the Stars)
+const ELEVATOR_LON = 3.6; // where the Space Elevator rises from the equator
+const STATION = hex('#e6ebf5'), CABLE = hex('#b9c2d8');
+
+// The planet's terrain is the same for every Globe, so it's built once and shared.
+let TEX = null;
 
 // blend col toward c by m (0..1)
 const mix = (col, c, m) => [col[0] + (c[0] - col[0]) * m, col[1] + (c[1] - col[1]) * m, col[2] + (c[2] - col[2]) * m];
 const wrapAngle = (a) => ((a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
 
 export class Globe {
-  constructor(canvas) {
+  constructor(canvas, { res = RES, r = R } = {}) {
+    this.res = res; this.r = r;
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas ? canvas.getContext('2d') : null;
     this.buf = document.createElement('canvas');
-    this.buf.width = RES;
-    this.buf.height = RES;
+    this.buf.width = res;
+    this.buf.height = res;
     this.bctx = this.buf.getContext('2d');
-    this.img = this.bctx.createImageData(RES, RES);
+    this.img = this.bctx.createImageData(res, res);
     this.rot = 0;
     this.rim = hex('#4bb8c4');
     this.halo = [201, 168, 220];
     this.cloudRot = 0;
-    this.height = fbm(TW, TH, 3, [32, 16, 8], [0.55, 0.3, 0.15]);
-    this.clouds = fbm(TW, TH, 41, [24, 10, 5], [0.5, 0.35, 0.15]);
-    this.riverTex = fbm(TW, TH, 77, [22, 9], [0.7, 0.3]);
-    this.forestTex = fbm(TW, TH, 91, [12, 5], [0.7, 0.3]);
-    this.applyCraters();
-    this.buildSeaLevels();
+    if (TEX) Object.assign(this, TEX);
+    else {
+      this.height = fbm(TW, TH, 3, [32, 16, 8], [0.55, 0.3, 0.15]);
+      this.clouds = fbm(TW, TH, 41, [24, 10, 5], [0.5, 0.35, 0.15]);
+      this.riverTex = fbm(TW, TH, 77, [22, 9], [0.7, 0.3]);
+      this.forestTex = fbm(TW, TH, 91, [12, 5], [0.7, 0.3]);
+      this.applyCraters();
+      this.buildSeaLevels();
+      TEX = { height: this.height, clouds: this.clouds, riverTex: this.riverTex, forestTex: this.forestTex, seaLevels: this.seaLevels };
+    }
+    const RES = res, R = r;
     // precompute sphere geometry
     const n = RES * RES;
     this.geo = { inside: new Uint8Array(n), lonOff: new Float32Array(n), lat: new Float32Array(n), shade: new Float32Array(n), d: new Float32Array(n), nx: new Float32Array(n), ny: new Float32Array(n), ring: new Float32Array(n) };
@@ -194,6 +206,7 @@ export class Globe {
 
   // Project lat/lon to the globe frame's coords (0..1 across the frame) and visibility (z > 0 faces you).
   project(lat, lon) {
+    const R = this.r;
     const rel = lon - this.rot;
     const x = Math.cos(lat) * Math.sin(rel);
     const y = -Math.sin(lat);
@@ -204,6 +217,7 @@ export class Globe {
 
   // A point on the surface in buffer pixels, with whether it faces you and how lit it is.
   surfacePx(lat, lon) {
+    const RES = this.res, R = this.r;
     const rel = lon - this.rot;
     const z = Math.cos(lat) * Math.cos(rel);
     const x = Math.round(RES / 2 - 0.5 + Math.cos(lat) * Math.sin(rel) * R);
@@ -213,12 +227,14 @@ export class Globe {
   }
 
   put(x, y, col, a = 255) {
+    const RES = this.res;
     if (x < 0 || y < 0 || x >= RES || y >= RES) return;
     const o = (y * RES + x) * 4, d = this.img.data;
     d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = a;
   }
 
   render(vis, t) {
+    const RES = this.res;
     const data = this.img.data;
     const g = this.geo;
     const HALO = this.halo, RIM = this.rim;
@@ -243,7 +259,7 @@ export class Globe {
         const i = y * RES + x;
         const o = i * 4;
         const dith = BAYER[(y & 3) * 4 + (x & 3)];
-        const rg = vis.ring ? g.ring[i] : 0;
+        const rg = vis.goalRing ? g.ring[i] : 0;
         if (!g.inside[i]) {
           if (rg) { // the ring, front and back, where the planet doesn't hide it
             const rr = Math.abs(rg);
@@ -365,6 +381,7 @@ export class Globe {
     this.drawSpace(vis, t);
     this.bctx.putImageData(this.img, 0, 0);
     const ctx = this.ctx;
+    if (!ctx) return; // a month planet is drawn from this.buf by the sky view
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.drawImage(this.buf, 0, 0, this.canvas.width, this.canvas.height);
@@ -417,25 +434,56 @@ export class Globe {
     }
   }
 
-  // the moon, satellites and rocket launches
+  // A shaded moon at (mx, my), radius mr; mz < 0 puts it behind the planet.
+  drawMoon(mx, my, mz, mr, seed) {
+    const RES = this.res, R = this.r, c = RES / 2 - 0.5;
+    const ir = Math.ceil(mr);
+    for (let y = -ir; y <= ir; y++) {
+      for (let x = -ir; x <= ir; x++) {
+        const d2 = (x * x + y * y) / (mr * mr);
+        if (d2 > 1) continue;
+        const px = Math.round(mx + x), py = Math.round(my + y);
+        if (mz < 0 && (px - c) ** 2 + (py - c) ** 2 <= R * R) continue;
+        const nz = Math.sqrt(1 - d2), nx = x / mr, ny = y / mr;
+        let v = -0.55 * nx - 0.45 * ny + 0.72 * nz + BAYER[(py & 3) * 4 + (px & 3)] * 0.2;
+        if (mr > 3 && hash(x + 9, y + 9, seed) > 0.82) v -= 0.25; // craters
+        this.put(px, py, pMoon[Math.max(0, Math.min(4, Math.floor((v + 0.25) * 4)))]);
+      }
+    }
+  }
+
+  // goal moons, the orbital station, the space elevator, satellites and rocket launches
   drawSpace(vis, t) {
+    const RES = this.res, R = this.r;
     const c = RES / 2 - 0.5;
     const behind = (x, y, z) => z < 0 && (x - c) ** 2 + (y - c) ** 2 <= R * R;
-    if (vis.moon) {
-      const th = t * 0.00011;
-      const mx = c + Math.cos(th) * R * 1.5, my = c - 6 + Math.sin(th) * R * 0.3, mz = Math.sin(th);
-      const mr = 5;
-      for (let y = -mr; y <= mr; y++) {
-        for (let x = -mr; x <= mr; x++) {
-          const d2 = (x * x + y * y) / (mr * mr);
-          if (d2 > 1) continue;
-          const px = Math.round(mx + x), py = Math.round(my + y);
-          if (behind(px, py, mz)) continue;
-          const nz = Math.sqrt(1 - d2), nx = x / mr, ny = y / mr;
-          let v = -0.55 * nx - 0.45 * ny + 0.72 * nz + BAYER[(py & 3) * 4 + (px & 3)] * 0.2;
-          if (hash(x + 9, y + 9, 5) > 0.82) v -= 0.25; // craters
-          this.put(px, py, pMoon[Math.max(0, Math.min(4, Math.floor((v + 0.25) * 4)))]);
-        }
+    // a moon for each goal met this month (two at most; all three adds the ring)
+    const moons = [{ orbit: 1.5, tilt: 0.3, speed: 0.00011, size: 0.105, phase: 0 }, { orbit: 1.27, tilt: -0.22, speed: 0.00017, size: 0.075, phase: 2.4 }];
+    for (let n = 0; n < Math.min(2, vis.goalMoons || 0); n++) {
+      const m = moons[n], th = t * m.speed + m.phase;
+      this.drawMoon(c + Math.cos(th) * R * m.orbit, c - R * 0.12 + Math.sin(th) * R * m.orbit * m.tilt, Math.sin(th), Math.max(1.2, R * m.size), 5 + n);
+    }
+    // the Space Elevator: a cable from the equator up to a counterweight, turning with the planet
+    if (vis.elevator) {
+      const rel = ELEVATOR_LON - this.rot;
+      const bx = Math.sin(rel), bz = Math.cos(rel);
+      const steps = Math.ceil(R * 0.8);
+      for (let k = 0; k <= steps; k++) {
+        const f = 1 + 0.75 * k / steps;
+        const x = Math.round(c + bx * f * R), y = Math.round(c - 0.5), z = bz;
+        if (behind(x, y, z)) continue;
+        if (k === steps) { this.put(x, y - 1, STATION); this.put(x, y, STATION); this.put(x + 1, y, CABLE); this.put(x - 1, y, CABLE); }
+        else this.put(x, y, CABLE, z < 0 ? 150 : 255);
+      }
+    }
+    // the Orbital Station: a small crewed station on a slow, tilted orbit
+    if (vis.station) {
+      const th = t * 0.00008 + 1;
+      const x = Math.round(c + Math.cos(th) * R * 1.32), y = Math.round(c + Math.sin(th) * R * 1.32 * -0.35), z = Math.sin(th) * -1;
+      if (!behind(x, y, z)) {
+        this.put(x, y, STATION); this.put(x + 1, y, STATION); this.put(x, y + 1, STATION); this.put(x + 1, y + 1, CABLE);
+        for (const dx of [-3, -2, 3, 4]) this.put(x + dx, y, PANEL);
+        if (Math.floor(t / 700) % 2 === 0) this.put(x, y - 1, BLINK);
       }
     }
     const blink = Math.floor(t / 600) % 2 === 0;
@@ -454,9 +502,9 @@ export class Globe {
       if (p < 1) {
         const site = this.surfacePx(LAUNCH.lat, LAUNCH.lon);
         if (site.z > 0.25) {
-          let dx = site.x - c, dy = site.y - c - 6;
+          let dx = site.x - c, dy = site.y - c - R * 0.12;
           const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
-          const dist = p * p * 34;
+          const dist = p * p * R * 0.7;
           for (let k = 0; k < 9; k++) {
             const back = Math.max(0, dist - k * 1.4);
             this.put(Math.round(site.x + dx * back), Math.round(site.y + dy * back), FLAME[Math.min(4, k >> 1)], 255 - k * 20);

@@ -11,6 +11,7 @@
 //   render    renderAll(), redraws everything        util      small shared helpers
 //   tutorial  First Steps, the guided first tasks     reminders notifications and their settings
 //   cataclysm the month's-end cataclysm and its report
+//   sky       the zoomed-out sky: month planets, goal nebulae and stars, month summaries
 // merge.js combines two saves of the same world (Import in Settings).
 import { HOUR, advance } from './sim.js';
 import { icon } from './icons.js';
@@ -28,6 +29,7 @@ import { initKeywords } from './ui/keywords.js';
 import { maybeWelcome, placeCoach } from './ui/tutorial.js';
 import { checkReminders } from './ui/reminders.js';
 import { checkCataclysm } from './ui/cataclysm.js';
+import { skyOn, drawSky } from './ui/sky.js';
 import { cataclysm } from './sim.js';
 
 applyTheme(currentTheme(), false);
@@ -57,7 +59,7 @@ function frame(t) {
   if (t - lastFocus > 250) { focusTick(); lastFocus = t; }
   if (t - lastRemind > 30000) { checkReminders(); lastRemind = t; }
   if (t - lastSim < 20) checkCataclysm(); // right after each simulation step
-  drawGlobe(t);
+  if (skyOn()) drawSky(t); else drawGlobe(t);
   placeCoach();
   requestAnimationFrame(frame);
 }
